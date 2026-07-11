@@ -1,0 +1,105 @@
+[gd_scene format=3 uid="uid://c58nyt380ddiw"]
+
+[ext_resource type="Shader" uid="uid://cu8kpsmeuhjdn" path="res://shaders/spotlight_beam.gdshader" id="1_tsdbj"]
+[ext_resource type="PackedScene" uid="uid://dejc3kvsj5lmt" path="res://scenes/player/proto_controller.tscn" id="2_pegp3"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_u8y13"]
+size = Vector3(60, 2, 60)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_u8y13"]
+albedo_color = Color(0.35, 0.2, 0.1, 1)
+roughness = 0.92
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_tsdbj"]
+size = Vector3(60, 2, 60)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pegp3"]
+top_radius = 8.0
+bottom_radius = 0.15
+height = 14.0
+radial_segments = 32
+rings = 1
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_kaalw"]
+render_priority = 0
+shader = ExtResource("1_tsdbj")
+shader_parameter/beam_color = Color(1, 0.98, 0.85, 1)
+shader_parameter/beam_opacity = 0.18
+shader_parameter/beam_top_radius = 8.0
+shader_parameter/beam_bottom_radius = 0.15
+shader_parameter/beam_length = 14.0
+shader_parameter/edge_falloff = 2.8
+shader_parameter/view_falloff = 1.5
+shader_parameter/glow_strength = 0.8
+
+[sub_resource type="Environment" id="Environment_tsdbj"]
+background_mode = 1
+background_color = Color(0.01, 0.01, 0.015, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.02, 0.02, 0.03, 1)
+ambient_light_energy = 0.15
+tonemap_mode = 3
+tonemap_white = 6.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pegp3"]
+albedo_color = Color(0.5, 0.3, 0.15, 1)
+roughness = 0.85
+
+[node name="MainStage" type="Node3D" unique_id=1411697808]
+
+[node name="Floor" type="StaticBody3D" parent="." unique_id=470295437]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+
+[node name="FloorMesh" type="MeshInstance3D" parent="Floor" unique_id=2122852222]
+mesh = SubResource("BoxMesh_u8y13")
+surface_material_override/0 = SubResource("StandardMaterial3D_u8y13")
+
+[node name="FloorCollision" type="CollisionShape3D" parent="Floor" unique_id=1338237079]
+shape = SubResource("BoxShape3D_tsdbj")
+
+[node name="StageDirectionalLight" type="DirectionalLight3D" parent="." unique_id=1908802998]
+transform = Transform3D(0.8660254, 0.35355338, -0.35355338, 0, 0.70710677, 0.70710677, 0.5, -0.6123724, 0.6123724, 0, 0, 0)
+light_color = Color(1, 0.9, 0.75, 1)
+light_energy = 0.3
+shadow_enabled = true
+
+[node name="CenterSpotlight" type="SpotLight3D" parent="." unique_id=285880855]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 12, 22.603233)
+light_energy = 12.0
+shadow_enabled = true
+spot_range = 20.0
+spot_angle = 35.0
+
+[node name="SpotlightBeam" type="MeshInstance3D" parent="CenterSpotlight" unique_id=1371782479]
+transform = Transform3D(-1, 0, 0, 0, 8.742278e-08, -1, 0, -1, -8.742278e-08, 0, 0, -7.035992)
+mesh = SubResource("CylinderMesh_pegp3")
+surface_material_override/0 = SubResource("ShaderMaterial_kaalw")
+
+[node name="TheaterEnvironment" type="WorldEnvironment" parent="." unique_id=1678821239]
+environment = SubResource("Environment_tsdbj")
+
+[node name="ProtoController" parent="." unique_id=931243889 instance=ExtResource("2_pegp3")]
+transform = Transform3D(-1, 0, -1.509958e-07, 0, 1, 0, 1.509958e-07, 0, -1, 0, 0, 5)
+
+[node name="Stage" type="CSGCombiner3D" parent="." unique_id=1731546197]
+use_collision = true
+
+[node name="StageCircle" type="CSGCylinder3D" parent="Stage" unique_id=1362563570]
+transform = Transform3D(-1, 0, 8.742278e-08, 0, 1, 0, -8.742278e-08, 0, -1, 0, 0.5, 30)
+use_collision = true
+radius = 16.0
+height = 1.0
+material = SubResource("StandardMaterial3D_pegp3")
+
+[node name="Subtractor" type="CSGBox3D" parent="Stage" unique_id=1203122444]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 62.107746)
+operation = 2
+size = Vector3(40, 4, 64)
+
+[node name="CameraMount" type="Node3D" parent="." unique_id=872068861]
+transform = Transform3D(0.70710677, 0.3642671, 0.6060606, 0, 0.8570991, -0.5151515, -0.70710677, 0.3642671, 0.6060606, -20, 18, 10)
+
+[node name="StageCamera" type="Camera3D" parent="." unique_id=1551530037]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 3.6870942, 0.1814537)
+current = true
+fov = 35.026844

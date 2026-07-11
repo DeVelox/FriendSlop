@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://dejc3kvsj5lmt"]
+
+[ext_resource type="Script" uid="uid://bjhqql388mcfn" path="res://scripts/proto_controller.gd" id="1_eb5s5"]
+[ext_resource type="PackedScene" uid="uid://t4t5nlo5c1rr" path="res://assets/AnimatedHuman.glb" id="2_7avfm"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_qatdj"]
+radius = 0.4
+height = 1.8
+
+[node name="ProtoController" type="CharacterBody3D" unique_id=931243889]
+script = ExtResource("1_eb5s5")
+
+[node name="Collider" type="CollisionShape3D" parent="." unique_id=1418735310]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_qatdj")
+
+[node name="Head" type="Node3D" parent="." unique_id=1610696759]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Head" unique_id=1924398675]
+
+[node name="AnimatedHuman" parent="." unique_id=2021457196 instance=ExtResource("2_7avfm")]
+transform = Transform3D(-0.4, 0, -6.039832e-08, 0, 0.4, 0, 6.039832e-08, 0, -0.4, 0, 0.08705878, 0)

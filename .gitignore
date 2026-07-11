@@ -3,4 +3,9 @@
 /android/
 /export/
 .fennara/
+addons/fennara/bin/
+
 opencode.json
+
+# GodotSteam native libs
+addons/godotsteam/win64/
