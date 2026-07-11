@@ -2,3 +2,5 @@
 .godot/
 /android/
 /export/
+.fennara/
+opencode.json
