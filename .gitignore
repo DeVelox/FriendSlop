@@ -1,11 +1,16 @@
 # Godot 4+ specific ignores
 .godot/
-/android/
-/export/
+android/
+export/
+
+# OpenCode
+opencode.json
+
+# Fennara MCP
 .fennara/
 addons/fennara/bin/
 
-opencode.json
-
 # GodotSteam native libs
-addons/godotsteam/win64/
+addons/godotsteam/osx/
+addons/godotsteam/*32/
+addons/godotsteam/*64/

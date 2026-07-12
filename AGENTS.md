@@ -274,6 +274,12 @@ See Roadmap below.
 - [ ] Network disconnect handling: graceful cleanup on drop
 - [ ] Settings: volume, graphics, controls
 
+## Development Practices
+
+- **Git commits:** Commit as features are completed. Avoid committing too frequently (clutters history) but commit often enough that each working, testable feature is logged. One logical feature per commit is a good rule of thumb.
+- **Update this file:** Keep AGENTS.md current as implementation progresses. Log progress updates, mark roadmap items done, and add any clarifications or decisions established during development.
+- **Ask questions:** When requirements are ambiguous, ask clarifying questions during implementation rather than guessing. Use Context7 to look up Godot/Steam documentation if the user hasn't provided a reference already.
+
 ## Common Tasks
 
 ### Adding a New Input Action
