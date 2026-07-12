@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://c58nyt380ddiw"]
 
+[ext_resource type="Script" uid="uid://i8mygwc76h2w" path="res://scripts/game_manager.gd" id="1_pegp3"]
 [ext_resource type="Shader" uid="uid://cu8kpsmeuhjdn" path="res://shaders/spotlight_beam.gdshader" id="1_tsdbj"]
-[ext_resource type="PackedScene" uid="uid://dejc3kvsj5lmt" path="res://scenes/player/proto_controller.tscn" id="2_pegp3"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_u8y13"]
 size = Vector3(60, 2, 60)
@@ -46,6 +46,7 @@ albedo_color = Color(0.5, 0.3, 0.15, 1)
 roughness = 0.85
 
 [node name="MainStage" type="Node3D" unique_id=1411697808]
+script = ExtResource("1_pegp3")
 
 [node name="Floor" type="StaticBody3D" parent="." unique_id=470295437]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
@@ -78,9 +79,6 @@ surface_material_override/0 = SubResource("ShaderMaterial_kaalw")
 [node name="TheaterEnvironment" type="WorldEnvironment" parent="." unique_id=1678821239]
 environment = SubResource("Environment_tsdbj")
 
-[node name="ProtoController" parent="." unique_id=931243889 instance=ExtResource("2_pegp3")]
-transform = Transform3D(-1, 0, -1.509958e-07, 0, 1, 0, 1.509958e-07, 0, -1, 0, 0, 5)
-
 [node name="Stage" type="CSGCombiner3D" parent="." unique_id=1731546197]
 use_collision = true
 
@@ -101,5 +99,9 @@ transform = Transform3D(0.70710677, 0.3642671, 0.6060606, 0, 0.8570991, -0.51515
 
 [node name="StageCamera" type="Camera3D" parent="." unique_id=1551530037]
 transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 3.6870942, 0.1814537)
-current = true
 fov = 35.026844
+
+[node name="Players" type="Node3D" parent="." unique_id=1376149750]
+
+[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=1931502511]
+spawn_path = NodePath("../Players")

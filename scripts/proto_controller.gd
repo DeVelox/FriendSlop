@@ -53,12 +53,26 @@ var freeflying : bool = false
 @onready var head: Node3D = $Head
 @onready var collider: CollisionShape3D = $Collider
 
+func _enter_tree() -> void:
+	set_multiplayer_authority(int(name))
+
+
 func _ready() -> void:
 	check_input_mappings()
 	look_rotation.y = rotation.y
 	look_rotation.x = head.rotation.x
+	if is_multiplayer_authority():
+		$Head/Camera3D.current = true
+		$AnimatedHuman.visible = false
+	else:
+		$Head/Camera3D.current = false
+		$Head.visible = false
+		set_process(false)
+		set_physics_process(false)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not is_multiplayer_authority():
+		return
 	# Mouse capturing
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		capture_mouse()
@@ -77,6 +91,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			disable_freefly()
 
 func _physics_process(delta: float) -> void:
+	if not is_multiplayer_authority():
+		return
 	# If freeflying, handle freefly and nothing else
 	if can_freefly and freeflying:
 		var input_dir := Input.get_vector(input_left, input_right, input_forward, input_back)

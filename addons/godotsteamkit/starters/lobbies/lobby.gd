@@ -33,6 +33,7 @@ func _ready() -> void:
 	_connect_steam_signals()
 	_get_lobby_name()
 	_get_lobby_members()
+	_setup_client_peer()
 
 
 func _get_lobby_members() -> void:
@@ -71,11 +72,43 @@ func _on_leave_pressed() -> void:
 	close_panel.emit()
 
 
-# This should start your match or game.  Depending on if you are using
-# persistent lobbies or not, you can close the lobby connections here.
 func _on_start_pressed() -> void:
-	# Insert code to start match / game with all players
-	pass
+	if not Steamworks.lobby_id:
+		return
+	var peer: SteamMultiplayerPeer = SteamMultiplayerPeer.new()
+	var err: int = peer.host_with_lobby(Steamworks.lobby_id)
+	if err == OK:
+		multiplayer.multiplayer_peer = peer
+		multiplayer.peer_connected.connect(_on_peer_connected)
+		multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+		get_tree().change_scene_to_file("res://scenes/main_stage.tscn")
+	else:
+		printerr("Failed to host multiplayer: %s" % err)
+
+
+func _setup_client_peer() -> void:
+	var owner_id: int = Steam.getLobbyOwner(Steamworks.lobby_id)
+	if owner_id == Steam.getSteamID():
+		return
+	var peer: SteamMultiplayerPeer = SteamMultiplayerPeer.new()
+	var err: int = peer.connect_to_lobby(Steamworks.lobby_id)
+	if err == OK:
+		multiplayer.multiplayer_peer = peer
+		multiplayer.connected_to_server.connect(_on_connected_to_server)
+	else:
+		printerr("Failed to connect to lobby: %s" % err)
+
+
+func _on_peer_connected(id: int) -> void:
+	print("Peer connected: %s" % id)
+
+
+func _on_peer_disconnected(id: int) -> void:
+	print("Peer disconnected: %s" % id)
+
+
+func _on_connected_to_server() -> void:
+	get_tree().change_scene_to_file("res://scenes/main_stage.tscn")
 #endregion
 
 

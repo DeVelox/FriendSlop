@@ -7,6 +7,14 @@
 radius = 0.4
 height = 1.8
 
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_7avfm"]
+properties/0/path = NodePath("..:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath("..:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+
 [node name="ProtoController" type="CharacterBody3D" unique_id=931243889]
 script = ExtResource("1_eb5s5")
 
@@ -21,3 +29,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
 
 [node name="AnimatedHuman" parent="." unique_id=2021457196 instance=ExtResource("2_7avfm")]
 transform = Transform3D(-0.4, 0, -6.039832e-08, 0, 0.4, 0, 6.039832e-08, 0, -0.4, 0, 0.08705878, 0)
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1176208178]
+replication_config = SubResource("SceneReplicationConfig_7avfm")
