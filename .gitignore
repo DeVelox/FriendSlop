@@ -3,6 +3,9 @@
 android/
 export/
 
+# Mistral Vibe
+.vibe/
+
 # OpenCode
 opencode.json
 

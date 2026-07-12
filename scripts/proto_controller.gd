@@ -1,57 +1,35 @@
-# ProtoController v1.0 by Brackeys
-# CC0 License
-# Intended for rapid prototyping of first-person games.
-# Happy prototyping!
-
 extends CharacterBody3D
 
-## Can we move around?
-@export var can_move : bool = true
-## Are we affected by gravity?
-@export var has_gravity : bool = true
-## Can we press to jump?
-@export var can_jump : bool = true
-## Can we hold to run?
-@export var can_sprint : bool = false
-## Can we press to enter freefly mode (noclip)?
-@export var can_freefly : bool = false
+## Player controller for charades gameplay.
+## Actor: moves on stage, triggers emotes to act out words.
+## Audience: seated, triggers reaction emotes.
 
-@export_group("Speeds")
-## Look around rotation speed.
-@export var look_speed : float = 0.002
-## Normal speed.
-@export var base_speed : float = 7.0
-## Speed of jump.
-@export var jump_velocity : float = 4.5
-## How fast do we run?
-@export var sprint_speed : float = 10.0
-## How fast do we freefly?
-@export var freefly_speed : float = 25.0
+@export var base_speed: float = 5.0
+@export var jump_velocity: float = 4.5
+@export var input_left: String = "ui_left"
+@export var input_right: String = "ui_right"
+@export var input_forward: String = "ui_up"
+@export var input_back: String = "ui_down"
+@export var input_jump: String = "ui_accept"
 
-@export_group("Input Actions")
-## Name of Input Action to move Left.
-@export var input_left : String = "ui_left"
-## Name of Input Action to move Right.
-@export var input_right : String = "ui_right"
-## Name of Input Action to move Forward.
-@export var input_forward : String = "ui_up"
-## Name of Input Action to move Backward.
-@export var input_back : String = "ui_down"
-## Name of Input Action to Jump.
-@export var input_jump : String = "ui_accept"
-## Name of Input Action to Sprint.
-@export var input_sprint : String = "sprint"
-## Name of Input Action to toggle freefly mode.
-@export var input_freefly : String = "freefly"
+var is_actor: bool = false
+var _playing_emote: bool = false
 
-var mouse_captured : bool = false
-var look_rotation : Vector2
-var move_speed : float = 0.0
-var freeflying : bool = false
-
-## IMPORTANT REFERENCES
 @onready var head: Node3D = $Head
 @onready var collider: CollisionShape3D = $Collider
+@onready var model: Node3D = $AnimatedHuman
+@onready var anim_player: AnimationPlayer = $AnimatedHuman/AnimationPlayer
+
+const STAGE_BOUNDS_MIN: Vector3 = Vector3(-10.0, 0.0, 18.0)
+const STAGE_BOUNDS_MAX: Vector3 = Vector3(10.0, 2.0, 28.0)
+
+const EMOTE_KEYS: Dictionary = {
+	KEY_1: "Human Armature|Punch",
+	KEY_2: "Human Armature|Working",
+	KEY_3: "Human Armature|Death",
+	KEY_4: "Human Armature|ArmatureAction_002",
+}
+
 
 func _enter_tree() -> void:
 	set_multiplayer_authority(int(name))
@@ -59,136 +37,104 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	check_input_mappings()
-	look_rotation.y = rotation.y
-	look_rotation.x = head.rotation.x
 	if is_multiplayer_authority():
-		$Head/Camera3D.current = true
-		$AnimatedHuman.visible = false
-	else:
 		$Head/Camera3D.current = false
-		$Head.visible = false
+	else:
 		set_process(false)
 		set_physics_process(false)
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
 		return
-	# Mouse capturing
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-		capture_mouse()
-	if Input.is_key_pressed(KEY_ESCAPE):
-		release_mouse()
-	
-	# Look around
-	if mouse_captured and event is InputEventMouseMotion:
-		rotate_look(event.relative)
-	
-	# Toggle freefly mode
-	if can_freefly and Input.is_action_just_pressed(input_freefly):
-		if not freeflying:
-			enable_freefly()
-		else:
-			disable_freefly()
+	if not event is InputEventKey:
+		return
+	if not event.pressed:
+		return
+	if EMOTE_KEYS.has(event.keycode):
+		_play_emote(EMOTE_KEYS[event.keycode])
+
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
 		return
-	# If freeflying, handle freefly and nothing else
-	if can_freefly and freeflying:
-		var input_dir := Input.get_vector(input_left, input_right, input_forward, input_back)
-		var motion := (head.global_basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
-		motion *= freefly_speed * delta
-		move_and_collide(motion)
+
+	velocity += get_gravity() * delta
+
+	if Input.is_action_just_pressed(input_jump) and is_on_floor():
+		velocity.y = jump_velocity
+		_play_movement("Human Armature|Jump")
+
+	if not is_actor:
+		move_and_slide()
 		return
-	
-	# Apply gravity to velocity
-	if has_gravity:
-		if not is_on_floor():
-			velocity += get_gravity() * delta
 
-	# Apply jumping
-	if can_jump:
-		if Input.is_action_just_pressed(input_jump) and is_on_floor():
-			velocity.y = jump_velocity
+	var input_dir := Input.get_vector(input_left, input_right, input_forward, input_back)
+	var move_dir := (transform.basis * Vector3(-input_dir.x, 0, -input_dir.y)).normalized()
 
-	# Modify speed based on sprinting
-	if can_sprint and Input.is_action_pressed(input_sprint):
-			move_speed = sprint_speed
+	if move_dir:
+		velocity.x = move_dir.x * base_speed
+		velocity.z = move_dir.z * base_speed
 	else:
-		move_speed = base_speed
+		velocity.x = move_toward(velocity.x, 0, base_speed)
+		velocity.z = move_toward(velocity.z, 0, base_speed)
 
-	# Apply desired movement to velocity
-	if can_move:
-		var input_dir := Input.get_vector(input_left, input_right, input_forward, input_back)
-		var move_dir := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
-		if move_dir:
-			velocity.x = move_dir.x * move_speed
-			velocity.z = move_dir.z * move_speed
-		else:
-			velocity.x = move_toward(velocity.x, 0, move_speed)
-			velocity.z = move_toward(velocity.z, 0, move_speed)
-	else:
-		velocity.x = 0
-		velocity.y = 0
-	
-	# Use velocity to actually move
 	move_and_slide()
+	_clamp_to_stage()
+
+	if not _playing_emote:
+		if is_on_floor():
+			if move_dir.length_squared() > 0.01:
+				_play_movement("Human Armature|Walk")
+			else:
+				_play_movement("Human Armature|Idle")
 
 
-## Rotate us to look around.
-## Base of controller rotates around y (left/right). Head rotates around x (up/down).
-## Modifies look_rotation based on rot_input, then resets basis and rotates by look_rotation.
-func rotate_look(rot_input : Vector2):
-	look_rotation.x -= rot_input.y * look_speed
-	look_rotation.x = clamp(look_rotation.x, deg_to_rad(-85), deg_to_rad(85))
-	look_rotation.y -= rot_input.x * look_speed
-	transform.basis = Basis()
-	rotate_y(look_rotation.y)
-	head.transform.basis = Basis()
-	head.rotate_x(look_rotation.x)
+func set_role(actor: bool) -> void:
+	is_actor = actor
+	if not is_multiplayer_authority():
+		return
+	model.visible = true
 
 
-func enable_freefly():
-	collider.disabled = true
-	freeflying = true
-	velocity = Vector3.ZERO
-
-func disable_freefly():
-	collider.disabled = false
-	freeflying = false
-
-
-func capture_mouse():
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	mouse_captured = true
+func _play_emote(anim_name: String) -> void:
+	if anim_player == null:
+		return
+	if anim_player.has_animation(anim_name):
+		var anim: Animation = anim_player.get_animation(anim_name)
+		if anim != null:
+			anim.loop_mode = Animation.LOOP_LINEAR
+		anim_player.play(anim_name)
+		_playing_emote = true
 
 
-func release_mouse():
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	mouse_captured = false
+func _play_movement(anim_name: String) -> void:
+	if anim_player == null:
+		return
+	if anim_player.has_animation(anim_name):
+		if anim_player.current_animation != anim_name:
+			anim_player.play(anim_name)
+		_playing_emote = false
 
 
-## Checks if some Input Actions haven't been created.
-## Disables functionality accordingly.
-func check_input_mappings():
-	if can_move and not InputMap.has_action(input_left):
-		push_error("Movement disabled. No InputAction found for input_left: " + input_left)
-		can_move = false
-	if can_move and not InputMap.has_action(input_right):
-		push_error("Movement disabled. No InputAction found for input_right: " + input_right)
-		can_move = false
-	if can_move and not InputMap.has_action(input_forward):
-		push_error("Movement disabled. No InputAction found for input_forward: " + input_forward)
-		can_move = false
-	if can_move and not InputMap.has_action(input_back):
-		push_error("Movement disabled. No InputAction found for input_back: " + input_back)
-		can_move = false
-	if can_jump and not InputMap.has_action(input_jump):
-		push_error("Jumping disabled. No InputAction found for input_jump: " + input_jump)
-		can_jump = false
-	if can_sprint and not InputMap.has_action(input_sprint):
-		push_error("Sprinting disabled. No InputAction found for input_sprint: " + input_sprint)
-		can_sprint = false
-	if can_freefly and not InputMap.has_action(input_freefly):
-		push_error("Freefly disabled. No InputAction found for input_freefly: " + input_freefly)
-		can_freefly = false
+func _clamp_to_stage() -> void:
+	global_position.x = clampf(global_position.x, STAGE_BOUNDS_MIN.x, STAGE_BOUNDS_MAX.x)
+	global_position.z = clampf(global_position.z, STAGE_BOUNDS_MIN.z, STAGE_BOUNDS_MAX.z)
+	global_position.y = maxf(global_position.y, STAGE_BOUNDS_MIN.y)
+
+
+func look_at_camera() -> void:
+	var cam: Camera3D = get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var dir: Vector3 = (cam.global_position - global_position).normalized()
+	dir.y = 0.0
+	if dir.length_squared() > 0.01:
+		rotation.y = atan2(dir.x, dir.z)
+
+
+func check_input_mappings() -> void:
+	var actions: Array[String] = [input_left, input_right, input_forward, input_back]
+	for action in actions:
+		if not InputMap.has_action(action):
+			push_warning("Input action not found: " + action)

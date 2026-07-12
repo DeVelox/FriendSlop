@@ -101,7 +101,18 @@ The core gameplay mechanic. Both actor and audience use emotes.
 - **Actor:** Full range of emotes — gestures, poses, movements for acting out words. The actor cycles through emotes to convey the prompt.
 - **Audience:** Limited reaction emotes — clapping, throwing tomatoes, facepalms, etc. Cosmetic/social only, no gameplay impact.
 
-Emote system not yet implemented. See Roadmap.
+**Current implementation:** Placeholder emotes using the AnimatedHuman model's built-in animations. Walk and jump animations are used automatically during movement. The remaining animations are bound to number row keys (1-4) as emotes. These will be replaced with proper emote animations when provided.
+
+| Key | Animation | Use Case |
+|-----|-----------|----------|
+| 1 | Punch | Action/gesture |
+| 2 | Working | Activity/emote |
+| 3 | Death | Dramatic reaction |
+| 4 | ArmatureAction_002 | Placeholder |
+
+Movement animations (automatic):
+- **Walk** — plays when the actor is moving on the ground
+- **Jump** — plays when any player jumps
 
 ### Round System
 
@@ -160,9 +171,8 @@ The actor cannot speak during their turn. Audience members guess verbally; the a
 
 ### Stage Layout
 
-- **Actor:** Spawns under the spotlight on the stage platform (approximately `(0, 1, 30)`), facing the fixed camera.
-- **Audience:** Spawns evenly distributed between the camera and the stage (roughly z=15 to z=25). Positioned so upper torso is visible but the actor takes up the largest portion of the frame.
-- **Current prototype:** All players spawn at `(0, 0, 5)` — needs updating for the actor/audience split.
+- **Actor:** Spawns under the spotlight on the stage platform at `(0, 1, 30)`, facing the fixed camera.
+- **Audience:** Spawns evenly distributed between the camera and the stage (z=15 to z=25, 11 slots with sinusoidal x-spread).
 
 ### Camera
 
@@ -221,41 +231,54 @@ export/          # Build output (gitignored)
 - Steam lobby system (create, browse, join, invite, chat, leave)
 - `SteamMultiplayerPeer` connection (host + client)
 - Player spawning via `MultiplayerSpawner`
-- First-person prototyping controller (movement, look, sprint, freefly/noclip) — **needs rework to third/second person hybrid**
 - `MultiplayerSynchronizer` for position/rotation replication
 - Theater stage environment (floor, CSG platform, spotlight with volumetric beam shader)
 - Fixed camera setup
 - Steam user data collection (ID, username, language, VAC status, Steam Deck detection)
 - Command-line lobby invite support (`+connect_lobby`)
+- Round manager: server-side state machine (WAITING → CHOOSING_ACTOR → ACTOR_READY → IN_ROUND → ROUND_END)
+- Exhaustive actor pool: all players take a turn before resetting
+- Round timer: server-authoritative countdown (configurable `round_time`, `prep_time`, `end_pause`)
+- Word bank: 20 charade prompts (gaming + movies/TV), random selection with no repeats within session
+- Spotlight toggle: enabled during rounds, disabled between rounds
+- Player controller rework: role-based controller (actor vs audience), stage boundary clamping
+- Actor/audience spawn positions: actor to stage center `(0, 1, 23)`, audience distributed between z=15–25
+- Rounds-won tracking: dictionary of wins per peer, `declare_winner()` API
+- Role assignment: server sets `is_actor` metadata and calls `set_role()` on player controllers
 
 ### Not Yet Implemented
 
-See Roadmap below.
+- Emote system: placeholder animations (need proper emote animations)
+- Voice chat (Steam Voice integration)
+- Prompt display (show word to actor only)
+- Spectator UI (timer, actor name, guess count)
+- Scoring system
+- Winner declaration RPC from actor to server (UI for clicking player avatars)
 
 ## Roadmap
 
 ### Priority 1 - Core Game Loop
 
-- [ ] Round manager: server-side state machine for actor selection, round timing, transitions
-- [ ] Player controller rework: third/second person hybrid, restricted movement (actor on stage, audience seated)
-- [ ] Actor/audience spawn positions: actor to stage center, audience distributed between camera and stage
-- [ ] Exhaustive pool: track which players have acted, reset when all have gone
-- [ ] Round timer: configurable by host in lobby, server-authoritative countdown
-- [ ] Spotlight toggle: enable/disable spotlight effect between rounds
-- [ ] Emote system: actor emotes (full range for acting), audience reactions (clapping, tomatoes, etc.)
-- [ ] Actor declares round winner, rounds-won tally
+- [x] Round manager: server-side state machine for actor selection, round timing, transitions
+- [x] Player controller rework: third/second person hybrid, restricted movement (actor on stage, audience seated)
+- [x] Actor/audience spawn positions: actor to stage center, audience distributed between camera and stage
+- [x] Exhaustive pool: track which players have acted, reset when all have gone
+- [x] Round timer: configurable by host in lobby, server-authoritative countdown
+- [x] Spotlight toggle: enable/disable spotlight effect between rounds
+- [x] Emote system: placeholder animations bound to number row keys (1-6), both actor and audience can trigger
+- [x] Actor declares round winner, rounds-won tally
 
 ### Priority 2 - Voice & Word System
 
 - [ ] Voice chat: Steam Voice integration (recording, playback, RPC transport, speaking indicator)
 - [ ] Actor muting: server-side enforcement — actor cannot transmit voice during their turn
-- [ ] Word bank: built-in list of charade prompts (20 prompts, gaming + movies/TV)
+- [x] Word bank: built-in list of charade prompts (20 prompts, gaming + movies/TV)
 - [ ] Prompt display: show the word to the actor only (not the audience)
-- [ ] Word selection: random from the bank, no repeats within a session
+- [x] Word selection: random from the bank, no repeats within a session
 
 ### Priority 3 - Audience
 
-- [ ] Audience seating: fixed positions between camera and stage
+- [x] Audience seating: fixed positions between camera and stage
 - [ ] Spectator UI: timer, current actor name, guess count
 - [ ] Audience idle behavior while waiting
 
