@@ -15,6 +15,24 @@ extends CharacterBody3D
 var is_actor: bool = false
 var _playing_emote: bool = false
 
+var synced_anim: String = "":
+	set(value):
+		if synced_anim == value:
+			return
+		synced_anim = value
+		if value == "":
+			return
+		if anim_player == null:
+			return
+		if is_multiplayer_authority():
+			return
+		if EMOTE_KEYS.values().has(value):
+			var anim: Animation = anim_player.get_animation(value)
+			if anim != null:
+				anim.loop_mode = Animation.LOOP_LINEAR
+		if anim_player.has_animation(value) and anim_player.current_animation != value:
+			anim_player.play(value)
+
 @onready var head: Node3D = $Head
 @onready var collider: CollisionShape3D = $Collider
 @onready var model: Node3D = $AnimatedHuman
@@ -106,6 +124,7 @@ func _play_emote(anim_name: String) -> void:
 			anim.loop_mode = Animation.LOOP_LINEAR
 		anim_player.play(anim_name)
 		_playing_emote = true
+		synced_anim = anim_name
 
 
 func _play_movement(anim_name: String) -> void:
@@ -114,6 +133,7 @@ func _play_movement(anim_name: String) -> void:
 	if anim_player.has_animation(anim_name):
 		if anim_player.current_animation != anim_name:
 			anim_player.play(anim_name)
+			synced_anim = anim_name
 		_playing_emote = false
 
 
