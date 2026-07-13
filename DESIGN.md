@@ -1,81 +1,122 @@
 # Design
 
-Gameplay design document for FriendSlop. This file describes *what the game does* and *why*. For implementation details, read the code directly.
+This document describes the design goals, mechanics, and ideas behind FriendSlop. It explains *what the game is* and *why*, not how it's implemented. For implementation details, read the code.
 
-## Lobby Flow
+## Game Overview
 
-1. Player launches game -> `Steamworks` autoload initializes Steam
-2. Player sees lobby manager with Host / Join / Exit buttons
-3. **Host:** Clicks Host -> `lobby_host` creates a Steam lobby (visibility, max players)
-4. **Client:** Clicks Join -> `lobby_join` browses lobby list (distance filter, search, open slots), picks one to join
-5. Both see lobby scene: player list, Invite button (Steam overlay), chat, Leave
-6. **Host configures round settings** (e.g. round time)
-7. Host presses Start -> `SteamMultiplayerPeer.host_with_lobby(lobby_id)` -> scene changes to `main_stage.tscn`
-8. Client connects via `SteamMultiplayerPeer.connect_to_lobby(lobby_id)` -> waits for `connected_to_server` signal -> same scene change
-9. Host can invite friends anytime via Steam overlay (`activateGameOverlayInviteDialog`)
-10. Supports `+connect_lobby <id>` command-line arg for Steam overlay join invites
+FriendSlop is an online multiplayer charades game. Designed for teams of 2-3 players taking turns on stage, acting out words through animations (mime) while opposing teams watch and guess. It also supports solo play (teams of 1) for smaller groups. The game is designed for parties and social play — low barrier to entry, high potential for funny moments.
 
-## Player Controller
+The core loop is simple: a team acts, the other teams guess, points are scored, and the next team takes the stage.
 
-The controller is a **third/second person hybrid** designed around emote-based gameplay, not free-roaming movement. It is an enabler for the emote system.
+## Core Loop
 
-- **Actor:** Can move freely within the stage area. Cannot leave the stage. Primary interaction is triggering emotes to act out words.
-- **Audience:** Seated in fixed positions between the camera and stage. Cannot move. Primary interaction is triggering reaction emotes (clapping, throwing tomatoes, etc.).
+1. Players form teams in the lobby
+2. A word is chosen (from packs added to the lobby)
+3. The acting team picks a word from 3 random options
+4. A short prep phase lets the acting team choose a stage background
+5. The acting team performs — using poses and animations to convey the word
+6. Guessing teams type their answer and select from a fuzzy-searched list on screen
+7. Points are awarded based on the outcome
+8. Once all teams have acted, the stage is complete and a new one begins
 
-The current prototype is based on a first-person prototyping controller (Brackeys' ProtoController) and needs to be reworked to match the intended third/second person hybrid design with restricted movement.
+## Teams & Stages
 
-## Emotes
+The game is structured around **stages**. Each stage is a full cycle where every team takes a turn acting.
 
-The core gameplay mechanic. Both actor and audience use emotes.
+- Teams are ideally **2-3 players**, but teams of 1 (solo) are also supported
+- During a stage, each team gets one turn on stage while the other teams guess
+- A stage is complete once all teams have acted
+- After a stage ends, a new stage begins with a fresh cycle
 
-- **Actor:** Full range of emotes — gestures, poses, movements for acting out words. The actor cycles through emotes to convey the prompt.
-- **Audience:** Limited reaction emotes — clapping, throwing tomatoes, facepalms, etc. Cosmetic/social only, no gameplay impact.
+Team formation happens in the lobby before the game starts.
 
-**Current implementation:** Placeholder emotes using the AnimatedHuman model's built-in animations. Walk and jump animations are used automatically during movement. The remaining animations are bound to number row keys (1-4) as emotes. These will be replaced with proper emote animations when provided.
+## Word System
 
-Movement animations (automatic):
-- **Walk** — plays when the actor is moving on the ground
-- **Jump** — plays when any player jumps
+### Packs
 
-## Round System
+Words are organized into **packs**. Each pack is a curated list of words tied to a single topic. Examples:
 
-- **Turn selection:** Exhaustive pool. All players take a turn as the actor. Once everyone has acted, the pool resets. Server picks the next actor randomly from the remaining pool.
-- **Round duration:** Timed. The round time is **configurable by the host during lobby setup**. Server-authoritative countdown.
-- **Prompt source:** Built-in word bank (see Word Bank below). Random selection, no repeats within a session.
-- **Input gating:** Player inputs (emotes, movement) are locked during ACTOR_READY (prep time) and ROUND_END states, and unlocked during IN_ROUND. This prevents actors from starting early and ensures clean transitions. Animations are reset to Idle at the start of each round.
+- "Top 100 Movies of All Time"
+- "Currently Airing Anime 2026"
+- "Classic TV Sitcoms"
 
-## Word Bank
+Packs are the primary way content is added to the game. The game ships with built-in packs, and players can also create custom packs.
 
-Built-in list of charade prompts. Randomly selected for each round, no repeats within a session. Shown only to the actor (not the audience). See `scripts/round_manager.gd` for the full prompt list.
+### Selection
 
-**Categories:**
-- Gaming (10 prompts): Mario, Link, Pac-Man, Angry Birds, Minecraft, Tetris, Sonic, Street Fighter, Portal, Guitar Hero
-- Movies / TV Shows (10 prompts): The Matrix, Jurassic Park, Titanic, Lord of the Rings, Star Wars, Friends, The Office, Breaking Bad, The Lion King, Harry Potter
+Before the game starts, players in the lobby select which packs to include. During a round, the acting team is presented with **3 randomly chosen words** from all selected packs. They pick one to act out.
 
-## Voice Chat & Guessing
+## Guessing
 
-Voice chat uses **Steam Voice** (`Steam` singleton voice APIs). The actor cannot speak during their turn — their mic is muted server-side. Audience members guess by speaking; a **speaking indicator** shows who is currently talking. The actor clicks on a player's avatar to declare the winner.
+Guessing is not based on the packs selected in the lobby. Instead, each topic has a **predefined master list** of valid answers — intentionally massive in scope:
 
-Key Steam Voice APIs (reference: https://godotsteam.com/tutorials/voice/):
-- `Steam.startVoiceRecording()` / `Steam.stopVoiceRecording()` — toggle mic capture
-- `Steam.getVoice()` — grab compressed voice buffer
-- `Steam.decompressVoice(buffer, sample_rate)` — decode for playback
-- `Steam.getVoiceOptimalSampleRate()` — get Steam's recommended sample rate
-- `Steam.setInGameVoiceSpeaking(steam_id, is_speaking)` — suppress Steam client audio while in-game
-- Voice data is sent to other peers via RPCs (`process_voice_data.rpc(buffer)`)
-- Playback uses `AudioStreamGenerator` + `AudioStreamGeneratorPlayback` with a buffer of `PackedVector2Array` frames
+- **Movies:** every title on IMDB
+- **Anime:** every title on MAL
+- **TV:** comprehensive show listings
 
-GodotSteamKit also provides a voice custom node that may contain reusable functionality.
+If a pack contains a word that isn't already in the master list for its topic, it gets added automatically. This ensures custom packs never produce unguessable rounds.
 
-## Stage Layout
-
-- **Actor:** Spawns under the spotlight on the stage platform at `(0, 1, 30)`, facing the fixed camera.
-- **Audience:** Spawns evenly distributed between the camera and the stage (z=15 to z=25, 11 slots with sinusoidal x-spread).
-
-## Camera
-
-Single fixed camera for the entire game. Located on `CameraMount` at position `(-20, 18, 10)`, FOV ~35 degrees, pointed at the spotlight/stage area. The audience is visible in the lower portion of the frame.
+Players guess by **typing the name**. As they type, a **fuzzy-searched list** appears on screen showing matching entries from the master list. The player can either type the full name and submit, or select from the suggestions. This keeps guessing fast while still requiring the guesser to know the answer.
 
 ## Scoring
 
-Not yet implemented. Current approach: the actor declares the winner each round. A simple rounds-won tally tracks overall standings. Team-based scoring is a future possibility.
+Scoring is intentionally simple and low-numbered:
+
+- **1-3 points** per round, fixed for now
+- Totals stay small and easy to understand at a glance
+- The exact point breakdown will be refined through playtesting
+
+The goal is a scoring system that feels fair without being complicated. Detailed scoring mechanics are a future consideration.
+
+## Voice & Communication
+
+Voice chat is a key part of the social experience, but with intentional asymmetry:
+
+- **Stage team:** Can talk to each other freely. They need to coordinate — pick the word, plan their act, and communicate during the performance. They can also hear the audience, but faintly — like ambient crowd noise in a theater.
+- **Audience:** Can hear each other clearly (to discuss and guess). They **cannot** hear the stage team at all. This keeps the acting team's planning private and prevents the audience from picking up verbal cues.
+
+This creates an interesting dynamic where the stage team has a private channel while the audience has their own.
+
+## The Pose System
+
+The pose system is the core mechanic that makes FriendSlop unique. It turns animation into a creative tool rather than a fixed set of emotes.
+
+### How It Works
+
+Every player has a set of **poses** they can cycle through. Each pose is tied to an animation — standing, walking, jumping, and various action animations.
+
+The key innovation is **freeze**: at any point, a player can press a button (RMB) to freeze their current animation at whatever frame it's on. This lets them:
+
+- Freeze mid-walk to create a stepping pose
+- Freeze mid-jump for an airborne pose
+- Freeze during an action animation to capture a specific gesture
+- Combine frozen poses with movement to "hold" a pose while sliding across the stage
+
+### Creative Freedom
+
+This system gives players a large vocabulary of visual expressions from a relatively small set of animations:
+
+- **Default stand** = neutral pose
+- **Walk** = movement animation, but can be frozen at any frame for custom poses
+- **Jump** = airborne animation, freezeable
+- **Action animations** = gestures and movements, each with multiple usable frames
+
+Players can switch poses at any time (pressing a pose key or unfreezing with RMB). The result is a system where creative players can craft surprisingly expressive performances from simple building blocks.
+
+## Stage Prep
+
+After choosing a word, the acting team gets a short preparation phase before the round begins:
+
+- They can select a **background** from a predefined list
+- Backgrounds are **cosmetic only** — they set the scene visually but don't affect gameplay
+- This gives the team a moment to plan their approach before the timer starts
+
+## Topics
+
+The game focuses on three topic categories:
+
+- **TV** — sitcoms, dramas, reality shows, iconic scenes
+- **Movies** — blockbuster moments, famous scenes, character impressions
+- **Anime** — popular series, memorable moments, character poses
+
+These topics are not final. The pack system is designed to be easily expandable — new topics, niche categories, and seasonal content can all be added as new packs without changing the core game.

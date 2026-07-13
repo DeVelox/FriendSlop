@@ -12,7 +12,7 @@ The Fennara guidelines file explains which MCP tools to use, when to inspect bef
 
 # FriendSlop
 
-Online multiplayer charades. One player acts out a word on a theater stage while the audience watches, reacts, and guesses via in-game voice chat.
+Online multiplayer charades. Teams of players act through animations (mime) while opposing teams guess the word. See `DESIGN.md` for full gameplay design.
 
 ## Tech Stack
 
@@ -39,7 +39,7 @@ This repository uses a layered documentation system. Higher-level files are broa
 |------|----------|---------|
 | `AGENTS.md` | Root | Project overview, tech stack, guiding principles, MD structure guide |
 | `ARCHITECTURE.md` | Root | Folder structure, what each folder contains, rules for creating new folders |
-| `DESIGN.md` | Root | Gameplay design — lobby flow, player controller, emotes, rounds, word bank, voice chat, scoring |
+| `DESIGN.md` | Root | Gameplay design — goals, mechanics, teams, packs, scoring, voice, pose system |
 | `AGENTS.md` | Each subfolder | Role of that folder, important nuances, conventions specific to its contents |
 
 **Rule of thumb:** Root files explain *what the project is and how it's organized*. Folder-level `AGENTS.md` files explain *what lives here and what to watch out for*. The deeper you go, the more specific the documentation gets.
