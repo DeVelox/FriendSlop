@@ -18,19 +18,23 @@ const LOBBY_HOST = preload("uid://cyjki2kcfa34b")
 ## The join / lobby list scene to browse up to 50 lobbies and set filters for searching.
 const LOBBY_JOIN = preload("uid://dvg3786kfbaty")
 
+const LOCAL_PORT: int = 7000
+
 @onready var _exit: Button = %Exit
 @onready var _host: Button = %Host
 @onready var _join: Button = %Join
+@onready var _host_local: Button = %HostLocal
+@onready var _join_local: Button = %JoinLocal
 @onready var _scene: Control = %Scene
 
 
 func _ready() -> void:
-	if not Engine.has_singleton("Steam"):
-		printerr("Steam singleton not found, scene will not function correctly")
-		return
 	_connect_signals()
-	_connect_steam_signals()
-	_get_command_line_invite()
+	if Engine.has_singleton("Steam"):
+		_connect_steam_signals()
+		_get_command_line_invite()
+	else:
+		print("Steam not available, Steam features will be unavailable")
 
 
 #region Signals
@@ -38,6 +42,8 @@ func _connect_signals() -> void:
 	_exit.pressed.connect(_on_exit_pressed)
 	_host.pressed.connect(_on_host_pressed)
 	_join.pressed.connect(_on_join_pressed)
+	_host_local.pressed.connect(_on_host_local_pressed)
+	_join_local.pressed.connect(_on_join_local_pressed)
 
 
 func _on_close_panel(this_panel: Control) -> void:
@@ -69,6 +75,33 @@ func _on_join_pressed() -> void:
 	var new_join := LOBBY_JOIN.instantiate()
 	new_join.close_panel.connect(_on_close_panel.bind(new_join))
 	_scene.call_deferred("add_child", new_join)
+
+
+func _on_host_local_pressed() -> void:
+	_clear_scene()
+	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+	var err: int = peer.create_server(LOCAL_PORT)
+	if err == OK:
+		multiplayer.multiplayer_peer = peer
+		get_tree().change_scene_to_file("res://scenes/main_stage.tscn")
+	else:
+		printerr("Failed to create local server: %s" % err)
+
+
+func _on_join_local_pressed() -> void:
+	_clear_scene()
+	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+	var err: int = peer.create_client("127.0.0.1", LOCAL_PORT)
+	if err == OK:
+		multiplayer.multiplayer_peer = peer
+		multiplayer.connected_to_server.connect(_on_connected_to_local)
+	else:
+		printerr("Failed to connect to local server: %s" % err)
+
+
+func _on_connected_to_local() -> void:
+	multiplayer.connected_to_server.disconnect(_on_connected_to_local)
+	get_tree().change_scene_to_file("res://scenes/main_stage.tscn")
 #endregion
 
 
@@ -112,8 +145,6 @@ func _on_lobby_joined(lobby_id: int, _permissions: int, _locked: int, response: 
 				printerr("Failed joining lobby %s, you have exceeded the rate limit.")
 
 
-# A helper function to wrap a Steam callback and check if it has failed to
-# connect properly.
 func _steam_callback_wrapper(this_signal: String, this_function: String) -> void:
 	var callback_connect: int = Steam.connect(this_signal, Callable(self, this_function))
 	if callback_connect > OK:
@@ -123,7 +154,7 @@ func _steam_callback_wrapper(this_signal: String, this_function: String) -> void
 
 #region Helpers
 func _clear_lobby() -> void:
-	if Steamworks.lobby_id > 0:
+	if Engine.has_singleton("Steam") and Steamworks.lobby_id > 0:
 		Steam.leaveLobby(Steamworks.lobby_id)
 		Steamworks.lobby_id = 0
 
