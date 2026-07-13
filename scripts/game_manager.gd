@@ -5,6 +5,8 @@ const PLAYER_SCENE: PackedScene = preload("res://scenes/player/proto_controller.
 const ACTOR_POSITION: Vector3 = Vector3(0.0, 1.0, 23.0)
 const STAGE_FORWARD: Vector3 = Vector3(0.0, 0.0, -1.0)
 
+signal players_changed
+
 @onready var players: Node3D = $Players
 @onready var round_manager: Node = $RoundManager
 @onready var spotlight: SpotLight3D = $CenterSpotlight
@@ -76,6 +78,7 @@ func _spawn_all_current_players() -> void:
 	for pid in _get_all_peer_ids():
 		if not players.has_node(str(pid)):
 			_spawn_player(pid)
+	players_changed.emit()
 
 
 func _on_peer_connected(id: int) -> void:
@@ -83,20 +86,22 @@ func _on_peer_connected(id: int) -> void:
 		_spawn_player(id)
 	if multiplayer.is_server():
 		_receive_peer_list.rpc_id(id, _get_all_peer_ids(), round_manager.current_actor_peer_id)
+	players_changed.emit()
 
 
 func _on_peer_disconnected(id: int) -> void:
 	if players.has_node(str(id)):
 		players.get_node(str(id)).queue_free()
+	players_changed.emit()
 
 
 func _on_server_disconnected() -> void:
 	printerr("Server disconnected, returning to lobby")
-	multiplayer.multiplayer_peer = null
 	if Engine.has_singleton("Steam") and Steamworks.lobby_id > 0:
 		Steam.leaveLobby(Steamworks.lobby_id)
 		Steamworks.lobby_id = 0
-	get_tree().change_scene_to_file("res://addons/godotsteamkit/starters/lobbies/lobby_manager.tscn")
+	multiplayer.multiplayer_peer = null
+	get_tree().change_scene_to_file.call_deferred("res://addons/godotsteamkit/starters/lobbies/lobby_manager.tscn")
 
 
 func _spawn_player(id: int) -> void:
@@ -128,22 +133,35 @@ func _request_peer_list() -> void:
 	_receive_peer_list.rpc_id(sender, _get_all_peer_ids(), round_manager.current_actor_peer_id)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable")
 func _receive_peer_list(peer_ids: Array, actor_id: int) -> void:
+	if multiplayer.is_server():
+		return
 	round_manager.current_actor_peer_id = actor_id
 	for pid in peer_ids:
 		if not players.has_node(str(pid)):
 			_spawn_player(pid)
+	players_changed.emit()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func declare_winner_rpc(winner_peer_id: int) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	if sender != round_manager.current_actor_peer_id:
+		return
+	round_manager.declare_winner(winner_peer_id)
 
 
 func _on_actor_changed(peer_id: int) -> void:
+	var peer_ids: Array[int] = _get_all_peer_ids()
 	for child in players.get_children():
 		var pid: int = child.get_meta("peer_id", int(child.name))
 		var is_child_actor: bool = (pid == peer_id)
 		if child.has_method("set_role"):
 			child.set_role(is_child_actor)
 		if pid != peer_id:
-			var peer_ids: Array[int] = _get_all_peer_ids()
 			var idx: int = peer_ids.find(pid)
 			if idx == -1:
 				idx = 0

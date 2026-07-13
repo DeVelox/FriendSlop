@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://i8mygwc76h2w" path="res://scripts/game_manager.gd" id="1_pegp3"]
 [ext_resource type="Shader" uid="uid://cu8kpsmeuhjdn" path="res://shaders/spotlight_beam.gdshader" id="1_tsdbj"]
 [ext_resource type="PackedScene" uid="uid://hlwmj2qnf4kg" path="res://scenes/round_manager.tscn" id="3_kaalw"]
+[ext_resource type="PackedScene" uid="uid://d1wqjc3vgtdhg" path="res://scenes/game_hud.tscn" id="4_wpcyk"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_u8y13"]
 size = Vector3(60, 2, 60)
@@ -105,3 +106,5 @@ fov = 35.026844
 [node name="Players" type="Node3D" parent="." unique_id=1376149750]
 
 [node name="RoundManager" parent="." unique_id=1937311908 instance=ExtResource("3_kaalw")]
+
+[node name="GameHUD" parent="." unique_id=1881796392 instance=ExtResource("4_wpcyk")]

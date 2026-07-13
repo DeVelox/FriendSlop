@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://d1wqjc3vgtdhg"]
+
+[ext_resource type="Script" uid="uid://cs82prvyhoqok" path="res://scripts/game_hud.gd" id="1_jna2d"]
+
+[node name="GameHUD" type="CanvasLayer" unique_id=1881796392]
+layer = 10
+script = ExtResource("1_jna2d")
+
+[node name="TimerLabel" type="Label" parent="." unique_id=100212791]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -100.0
+offset_top = 10.0
+offset_right = 100.0
+offset_bottom = 50.0
+text = "Time: --"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ActorPanel" type="MarginContainer" parent="." unique_id=1829736458]
+visible = false
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -100.0
+offset_right = 300.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ActorPanel" unique_id=68607080]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="PlayerList" type="HBoxContainer" parent="ActorPanel/VBoxContainer" unique_id=1474203363]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="AudiencePanel" type="MarginContainer" parent="." unique_id=1502827564]
+visible = false
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -250.0
+offset_top = -80.0
+offset_right = 250.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 5

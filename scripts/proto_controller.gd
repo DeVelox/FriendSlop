@@ -14,6 +14,8 @@ extends CharacterBody3D
 
 var is_actor: bool = false
 var _playing_emote: bool = false
+var _in_round: bool = false
+@onready var _round_manager: Node = get_node_or_null("../../RoundManager")
 
 var synced_anim: String = "":
 	set(value):
@@ -55,15 +57,31 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	check_input_mappings()
+	await get_tree().process_frame
+	var rm: Node = _round_manager
+	if rm == null:
+		var parent: Node = get_parent()
+		if parent != null:
+			rm = parent.get_parent().get_node_or_null("RoundManager")
+	if rm != null:
+		rm.reset_all_animations.connect(_on_reset_all_animations)
 	if is_multiplayer_authority():
 		$Head/Camera3D.current = false
+		if rm != null:
+			rm.state_changed.connect(_on_round_state_changed)
+			rm.round_started.connect(_on_round_started)
+			rm.round_ended.connect(_on_round_ended)
+			_in_round = (rm.current_state == 3)
 	else:
 		set_process(false)
 		set_physics_process(false)
 
 
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
+		return
+	if not _in_round:
 		return
 	if not event is InputEventKey:
 		return
@@ -73,29 +91,30 @@ func _unhandled_input(event: InputEvent) -> void:
 		_play_emote(EMOTE_KEYS[event.keycode])
 
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if not is_multiplayer_authority():
 		return
-
-	velocity += get_gravity() * delta
-
-	if Input.is_action_just_pressed(input_jump) and is_on_floor():
-		velocity.y = jump_velocity
-		_play_movement("Human Armature|Jump")
-
 	if not is_actor:
-		move_and_slide()
 		return
 
-	var input_dir := Input.get_vector(input_left, input_right, input_forward, input_back)
-	var move_dir := (transform.basis * Vector3(-input_dir.x, 0, -input_dir.y)).normalized()
+	velocity += get_gravity() * _delta
 
-	if move_dir:
-		velocity.x = move_dir.x * base_speed
-		velocity.z = move_dir.z * base_speed
-	else:
-		velocity.x = move_toward(velocity.x, 0, base_speed)
-		velocity.z = move_toward(velocity.z, 0, base_speed)
+	var move_dir := Vector3.ZERO
+
+	if _in_round:
+		if Input.is_action_just_pressed(input_jump) and is_on_floor():
+			velocity.y = jump_velocity
+			_play_movement("Human Armature|Jump")
+
+		var input_dir: Vector2 = Input.get_vector(input_left, input_right, input_forward, input_back)
+		move_dir = (transform.basis * Vector3(-input_dir.x, 0, -input_dir.y)).normalized()
+
+		if move_dir:
+			velocity.x = move_dir.x * base_speed
+			velocity.z = move_dir.z * base_speed
+		else:
+			velocity.x = move_toward(velocity.x, 0, base_speed)
+			velocity.z = move_toward(velocity.z, 0, base_speed)
 
 	move_and_slide()
 	_clamp_to_stage()
@@ -113,6 +132,24 @@ func set_role(actor: bool) -> void:
 	if not is_multiplayer_authority():
 		return
 	model.visible = true
+
+
+func _on_round_state_changed(_new_state: int) -> void:
+	pass
+
+
+func _on_round_started(_actor_peer_id: int, _prompt: String) -> void:
+	_in_round = true
+
+
+func _on_round_ended(_winner_peer_id: int) -> void:
+	_in_round = false
+
+
+func _on_reset_all_animations() -> void:
+	if anim_player != null and anim_player.has_animation("Human Armature|Idle"):
+		anim_player.play("Human Armature|Idle")
+	_playing_emote = false
 
 
 func _play_emote(anim_name: String) -> void:

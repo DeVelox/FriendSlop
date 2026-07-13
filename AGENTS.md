@@ -50,6 +50,7 @@ Steamworks autoload (Steam init)
 | `addons/godotsteamkit/starters/lobbies/lobby_manager.gd` | Host/join panel orchestration, handles `+connect_lobby` command-line invite |
 | `addons/godotsteamkit/starters/lobbies/lobby.gd` | In-lobby UI, creates `SteamMultiplayerPeer`, transitions to game scene |
 | `scripts/game_manager.gd` | Spawns/despawns players via `MultiplayerSpawner` on the server |
+| `scripts/game_hud.gd` | In-game HUD: round timer, actor player buttons, audience emote buttons |
 | `scripts/proto_controller.gd` | Player controller, emote-driven gameplay (see below) |
 
 ### Scene Structure
@@ -58,6 +59,7 @@ Steamworks autoload (Steam init)
 scenes/
   main_stage.tscn          # Main game scene (the theater)
   game_manager.tscn        # Standalone manager (shares script with main_stage)
+  game_hud.tscn            # In-game HUD (timer, actor/audience UIs)
   player/
     proto_controller.tscn  # Player character
 ```
@@ -119,6 +121,7 @@ Movement animations (automatic):
 - **Turn selection:** Exhaustive pool. All players take a turn as the actor. Once everyone has acted, the pool resets. Server picks the next actor randomly from the remaining pool.
 - **Round duration:** Timed. The round time is **configurable by the host during lobby setup**. Server-authoritative countdown.
 - **Prompt source:** Built-in word bank (see Word Bank below). Random selection, no repeats within a session.
+- **Input gating:** Player inputs (emotes, movement) are locked during ACTOR_READY (prep time) and ROUND_END states, and unlocked during IN_ROUND. This prevents actors from starting early and ensures clean transitions. Animations are reset to Idle at the start of each round.
 
 ### Word Bank
 
@@ -198,7 +201,7 @@ Follow the [Godot GDScript style guide](https://docs.godotengine.org/en/stables/
   - `@export` variables use `snake_case`
 - **Type hints:** Use explicit return types and parameter types. Use `:=` only when the type is completely obvious.
 - **Signals:** Use `signal name(param: Type)` declaration syntax
-- **Comments:** Use `##` for doc comments on exports and public functions. Avoid unnecessary inline comments.
+- **Comments:** Use `##` for doc comments on exports and public functions. Reserve inline comments for non-obvious logic only — self-explanatory code needs no comments.
 - **Scene paths:** Use forward-slash `res://` paths for cross-platform compatibility
 
 ### File Organization
@@ -216,13 +219,34 @@ export/          # Build output (gitignored)
 - Keep scripts focused: one major system per script
 - Use `@tool` scripts only for editor-side work; never attach them to runtime gameplay nodes
 
+### Multiplayer Authority Architecture
+
+**Server (Peer 1):**
+- Hosts the game, runs `RoundManager` state machine
+- Spawns and manages all player instances
+- Validates and applies game state changes
+- Uses direct function calls for RPCs to itself to avoid "RPC on yourself" errors
+- Emits authoritative signals (`round_started`, `round_ended`, `state_changed`) that clients sync to
+
+**Clients:**
+- Receive state via RPC sync from server
+- Only process input for their own authority-controlled player node
+- Connect to `RoundManager` signals to gate input based on game state
+- Do not run physics for non-authority nodes (audience members)
+
+**Player Controller Authority:**
+- Each player node sets authority via `set_multiplayer_authority(int(name))` where name is the peer ID
+- Authority peers process their own input and physics
+- Non-authority peers have `set_process(false)` and `set_physics_process(false)` called
+- Audience members (authority peers who are not actors) skip `_physics_process` via early return
+
 ### Multiplayer Conventions
 
-- **Server authority:** All game state changes go through the server. Clients send inputs, server validates and applies.
-- **Peer IDs as node names:** Player nodes are named by their peer ID string (`str(id)`)
-- **MultiplayerSynchronizer:** Used for position/rotation sync (`replication_mode=1` = always replicate)
-- **Authority checks:** Always call `is_multiplayer_authority()` before processing input or enabling cameras
-- **Signal connections:** Connect `multiplayer.peer_connected` and `multiplayer.peer_disconnected` in `_ready()`
+- **Server authority:** All game state changes go through the server (peer 1). Clients send inputs, server validates and applies. Server-authoritative RPC calls use direct function calls instead of `rpc_id` to avoid "RPC on yourself" errors.
+- **Peer IDs as node names:** Player nodes are named by their peer ID string (`str(id)`). Authority is set via `set_multiplayer_authority(int(name))` in `_enter_tree()`.
+- **MultiplayerSynchronizer:** Used for position/rotation sync (`replication_mode=1` = always replicate). Audience members skip physics processing entirely for efficiency.
+- **Authority checks:** Always call `is_multiplayer_authority()` before processing input or enabling cameras. Input processing is further gated by round state to prevent actions during prep time.
+- **Signal connections:** Connect `multiplayer.peer_connected` and `multiplayer.peer_disconnected` in `_ready()`. Controllers also connect to `RoundManager.state_changed`, `round_started`, and `round_ended` for input gating.
 
 ## Current State
 
@@ -238,22 +262,24 @@ export/          # Build output (gitignored)
 - Command-line lobby invite support (`+connect_lobby`)
 - Round manager: server-side state machine (WAITING → CHOOSING_ACTOR → ACTOR_READY → IN_ROUND → ROUND_END)
 - Exhaustive actor pool: all players take a turn before resetting
-- Round timer: server-authoritative countdown (configurable `round_time`, `prep_time`, `end_pause`)
+- Round timer: server-authoritative countdown (configurable `round_time`, `prep_time`, `end_pause`). Timer sync optimized to ~1 RPC per second instead of per frame.
 - Word bank: 20 charade prompts (gaming + movies/TV), random selection with no repeats within session
 - Spotlight toggle: enabled during rounds, disabled between rounds
-- Player controller rework: role-based controller (actor vs audience), stage boundary clamping
+- Player controller rework: role-based controller (actor vs audience), stage boundary clamping. Input processing gated by round state.
 - Actor/audience spawn positions: actor to stage center `(0, 1, 23)`, audience distributed between z=15–25
-- Rounds-won tracking: dictionary of wins per peer, `declare_winner()` API
+- Rounds-won tracking: dictionary of wins per peer, `declare_winner()` API with server-side validation
 - Role assignment: server sets `is_actor` metadata and calls `set_role()` on player controllers
+- In-game HUD: round timer (top-center, always visible), actor UI (dynamic player buttons with `players_changed` signal updates, declare winner), audience UI (emote buttons)
+- Input gating: inputs locked during ACTOR_READY (prep) and ROUND_END, unlocked during IN_ROUND. Animations reset to Idle at round start.
+- Network optimization: RoundManager reference via direct node path `"../RoundManager"` instead of runtime search. Audience physics disabled. Timer RPC throttling.
+- Fix: Declare winner buttons now rebuild on `players_changed` and `actor_changed` signals to ensure correct audience list. RPC fix prevents "RPC on yourself" errors for server peer.
 
 ### Not Yet Implemented
 
-- Emote system: placeholder animations (need proper emote animations)
+- Emote system: placeholder animations using AnimatedHuman built-in animations (1-4 keys). Inputs gated by round state.
 - Voice chat (Steam Voice integration)
-- Prompt display (show word to actor only)
-- Spectator UI (timer, actor name, guess count)
-- Scoring system
-- Winner declaration RPC from actor to server (UI for clicking player avatars)
+- Prompt display: show word to actor only (not the audience)
+- Scoring system: rounds-won tally implemented, full score display TBD
 
 ## Roadmap
 
@@ -268,7 +294,16 @@ export/          # Build output (gitignored)
 - [x] Emote system: placeholder animations bound to number row keys (1-6), both actor and audience can trigger
 - [x] Actor declares round winner, rounds-won tally
 
-### Priority 2 - Voice & Word System
+### Priority 2 - In-Game HUD
+
+- [x] Round timer: top-center display for all players, always visible, synced via `timer_updated` signal
+- [x] Actor UI: dynamic player list buttons (updates via `players_changed` signal on peer connect/disconnect), click to declare winner via RPC
+- [x] Audience UI: emote buttons (Punch, Working, Death, ArmatureAction_002), triggers same emotes as keybinds (1-4)
+- [ ] Prompt display: show the word to the actor only (not the audience)
+- [x] Input gating: emotes and movement locked during prep (ACTOR_READY) and round end (ROUND_END), unlocked during IN_ROUND
+- [x] Animation reset: all players reset to Idle animation at round start
+
+### Priority 3 - Voice & Word System
 
 - [ ] Voice chat: Steam Voice integration (recording, playback, RPC transport, speaking indicator)
 - [ ] Actor muting: server-side enforcement — actor cannot transmit voice during their turn
@@ -276,13 +311,13 @@ export/          # Build output (gitignored)
 - [ ] Prompt display: show the word to the actor only (not the audience)
 - [x] Word selection: random from the bank, no repeats within a session
 
-### Priority 3 - Audience
+### Priority 4 - Audience
 
 - [x] Audience seating: fixed positions between camera and stage
-- [ ] Spectator UI: timer, current actor name, guess count
+- [x] Spectator UI: round timer (top of screen, all players), emote buttons for audience
 - [ ] Audience idle behavior while waiting
 
-### Priority 4 - Scoring & Feedback
+### Priority 5 - Scoring & Feedback
 
 - [ ] Scoring system: TBD (possibility of teams)
 - [ ] Score display: UI showing current scores
@@ -296,6 +331,14 @@ export/          # Build output (gitignored)
 - [ ] UI overhaul: themed theater UI
 - [ ] Network disconnect handling: graceful cleanup on drop
 - [ ] Settings: volume, graphics, controls
+
+## Performance Considerations
+
+### Network Optimization
+- **Timer sync**: Timer RPCs reduced from 60+ per second to ~1 per second by only syncing on integer second boundaries
+- **Physics**: Audience member controllers skip `_physics_process` entirely (no movement needed for seated players)
+- **Node references**: Direct node path `"../RoundManager"` used instead of runtime search for faster access
+- **RPC calls**: Server-authoritative calls use direct function invocation instead of `rpc_id` to avoid self-RPC errors
 
 ## Development Practices
 

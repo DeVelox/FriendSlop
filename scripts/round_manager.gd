@@ -10,6 +10,12 @@ signal round_ended(winner_peer_id: int)
 signal actor_changed(peer_id: int)
 signal state_changed(new_state: State)
 signal timer_updated(time_remaining: float)
+signal reset_all_animations
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_reset_all_animations() -> void:
+	reset_all_animations.emit()
 
 @export var round_time: float = 90.0
 @export var prep_time: float = 5.0
@@ -58,6 +64,9 @@ func _ready() -> void:
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 
 
+var _last_sync_time: float = 0.0
+
+
 func _process(delta: float) -> void:
 	if not multiplayer.is_server():
 		return
@@ -65,19 +74,31 @@ func _process(delta: float) -> void:
 		State.ACTOR_READY:
 			time_remaining -= delta
 			time_remaining = maxf(time_remaining, 0.0)
-			_sync_timer.rpc(time_remaining)
+			timer_updated.emit(time_remaining)
+			_sync_timer_if_needed()
 			if time_remaining <= 0.0:
 				_begin_round()
 		State.IN_ROUND:
 			time_remaining -= delta
 			time_remaining = maxf(time_remaining, 0.0)
-			_sync_timer.rpc(time_remaining)
+			timer_updated.emit(time_remaining)
+			_sync_timer_if_needed()
 			if time_remaining <= 0.0:
 				_end_round(0)
 		State.ROUND_END:
 			time_remaining -= delta
+			time_remaining = maxf(time_remaining, 0.0)
+			timer_updated.emit(time_remaining)
+			_sync_timer_if_needed()
 			if time_remaining <= 0.0:
 				_choose_next_actor()
+
+
+func _sync_timer_if_needed() -> void:
+	var current_second: int = int(time_remaining)
+	if current_second != int(_last_sync_time) or time_remaining <= 1.0:
+		_sync_timer.rpc(time_remaining)
+		_last_sync_time = time_remaining
 
 
 func start_game() -> void:
@@ -104,7 +125,7 @@ func declare_winner(winner_peer_id: int) -> void:
 	if winner_peer_id == current_actor_peer_id:
 		return
 	if not rounds_won.has(winner_peer_id):
-		return
+		rounds_won[winner_peer_id] = 0
 	rounds_won[winner_peer_id] += 1
 	_end_round(winner_peer_id)
 
@@ -144,12 +165,14 @@ func _choose_next_actor() -> void:
 	current_prompt = _pick_prompt()
 	time_remaining = prep_time
 
-	_apply_roles_on_server()
+	_apply_roles_on_all_peers()
 	_sync_actor_info.rpc(current_actor_peer_id, current_prompt)
 	actor_changed.emit(current_actor_peer_id)
 
 	current_state = State.ACTOR_READY
 	state_changed.emit(current_state)
+	_last_sync_time = -1.0
+	_sync_timer.rpc(time_remaining)
 
 
 func _pick_prompt() -> String:
@@ -173,6 +196,7 @@ func _begin_round() -> void:
 	state_changed.emit(current_state)
 	round_started.emit(current_actor_peer_id, current_prompt)
 	_sync_state.rpc(State.IN_ROUND)
+	_last_sync_time = -1.0
 	_sync_timer.rpc(time_remaining)
 	_set_spotlight_enabled(true)
 
@@ -183,11 +207,15 @@ func _end_round(winner_peer_id: int) -> void:
 	state_changed.emit(current_state)
 	round_ended.emit(winner_peer_id)
 	_sync_state.rpc(State.ROUND_END)
+	_last_sync_time = -1.0
+	_sync_timer.rpc(time_remaining)
 	_set_spotlight_enabled(false)
 	_sync_winner.rpc(winner_peer_id)
+	reset_all_animations.emit()
+	_rpc_reset_all_animations.rpc()
 
 
-func _apply_roles_on_server() -> void:
+func _apply_roles_on_all_peers() -> void:
 	var players: Node3D = _get_players_node()
 	if players == null:
 		return
@@ -222,39 +250,36 @@ func _on_peer_disconnected(id: int) -> void:
 		_end_round(0)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable")
 func _sync_state(new_state: State) -> void:
 	current_state = new_state
 	state_changed.emit(new_state)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable")
 func _sync_actor_info(peer_id: int, prompt: String) -> void:
 	current_actor_peer_id = peer_id
 	current_prompt = prompt
 	actor_changed.emit(peer_id)
-	_apply_roles_on_server()
+	_apply_roles_on_all_peers()
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable")
 func _sync_timer(time: float) -> void:
 	time_remaining = time
 	timer_updated.emit(time)
 
 
-@rpc("authority", "call_remote", "reliable")
-func _apply_role(actor_peer_id: int) -> void:
-	current_actor_peer_id = actor_peer_id
-	_apply_roles_on_server()
 
 
-@rpc("authority", "call_remote", "reliable")
+
+@rpc("any_peer", "call_remote", "reliable")
 func _sync_spotlight(enabled: bool) -> void:
 	var spot: SpotLight3D = _get_spotlight()
 	if spot != null:
 		spot.visible = enabled
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable")
 func _sync_winner(_winner_peer_id: int) -> void:
 	pass
