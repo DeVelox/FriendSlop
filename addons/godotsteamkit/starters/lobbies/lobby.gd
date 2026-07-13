@@ -33,6 +33,7 @@ func _ready() -> void:
 	_connect_steam_signals()
 	_get_lobby_name()
 	_get_lobby_members()
+	_setup_start_button()
 	_setup_client_peer()
 
 
@@ -75,6 +76,9 @@ func _on_leave_pressed() -> void:
 func _on_start_pressed() -> void:
 	if not Steamworks.lobby_id:
 		return
+	if Steam.getLobbyOwner(Steamworks.lobby_id) != Steam.getSteamID():
+		printerr("Only the lobby owner can start the match")
+		return
 	var peer: SteamMultiplayerPeer = SteamMultiplayerPeer.new()
 	var err: int = peer.host_with_lobby(Steamworks.lobby_id)
 	if err == OK:
@@ -84,6 +88,11 @@ func _on_start_pressed() -> void:
 		get_tree().change_scene_to_file("res://scenes/main_stage.tscn")
 	else:
 		printerr("Failed to host multiplayer: %s" % err)
+
+
+func _setup_start_button() -> void:
+	var is_owner: bool = Steam.getLobbyOwner(Steamworks.lobby_id) == Steam.getSteamID()
+	_start.visible = is_owner
 
 
 func _setup_client_peer() -> void:

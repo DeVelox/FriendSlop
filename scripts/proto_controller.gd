@@ -134,8 +134,8 @@ func set_role(actor: bool) -> void:
 	model.visible = true
 
 
-func _on_round_state_changed(_new_state: int) -> void:
-	pass
+func _on_round_state_changed(new_state: int) -> void:
+	_in_round = (new_state == 3)
 
 
 func _on_round_started(_actor_peer_id: int, _prompt: String) -> void:
