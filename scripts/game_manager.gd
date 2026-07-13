@@ -16,6 +16,7 @@ var _audience_slots: Array[Vector3] = []
 func _ready() -> void:
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	multiplayer.server_disconnected.connect(_on_server_disconnected)
 	round_manager.actor_changed.connect(_on_actor_changed)
 	round_manager.round_started.connect(_on_round_started)
 	round_manager.round_ended.connect(_on_round_ended)
@@ -87,6 +88,15 @@ func _on_peer_connected(id: int) -> void:
 func _on_peer_disconnected(id: int) -> void:
 	if players.has_node(str(id)):
 		players.get_node(str(id)).queue_free()
+
+
+func _on_server_disconnected() -> void:
+	printerr("Server disconnected, returning to lobby")
+	multiplayer.multiplayer_peer = null
+	if Engine.has_singleton("Steam") and Steamworks.lobby_id > 0:
+		Steam.leaveLobby(Steamworks.lobby_id)
+		Steamworks.lobby_id = 0
+	get_tree().change_scene_to_file("res://addons/godotsteamkit/starters/lobbies/lobby_manager.tscn")
 
 
 func _spawn_player(id: int) -> void:
