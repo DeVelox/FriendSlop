@@ -129,9 +129,9 @@ func _physics_process(_delta: float) -> void:
 
 
 func set_role(actor: bool) -> void:
-	is_actor = actor
 	if not is_multiplayer_authority():
 		return
+	is_actor = actor
 	model.visible = true
 
 

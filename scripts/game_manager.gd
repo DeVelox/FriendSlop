@@ -5,14 +5,14 @@ const PLAYER_SCENE: PackedScene = preload("res://scenes/player/proto_controller.
 const ACTOR_POSITION: Vector3 = Vector3(0.0, 1.0, 23.0)
 const STAGE_FORWARD: Vector3 = Vector3(0.0, 0.0, -1.0)
 
-signal players_changed
-
 @onready var players: Node3D = $Multiplayer/Players
 @onready var round_manager: Node = $RoundManager
 @onready var spotlight: SpotLight3D = $CenterSpotlight
 @onready var camera: Camera3D = $StageCamera
 
 var _audience_slots: Array[Vector3] = []
+var _peer_list: Dictionary = {}
+var _peer_info: Dictionary = {"name": "Name"}
 
 
 func _ready() -> void:
@@ -26,7 +26,6 @@ func _ready() -> void:
 	_build_audience_slots()
 
 	if multiplayer.is_server():
-		#_spawn_all_current_players()
 		_spawn_player(1)
 		await get_tree().process_frame
 		round_manager.start_game()
@@ -63,7 +62,12 @@ func _build_audience_slots() -> void:
 			var pos: Vector3 = back_center + spread_dir * t * back_spread
 			_audience_slots.append(pos)
 
+func _get_actor_position() -> Vector3:
+	return ACTOR_POSITION
 
+func _get_actor_rotation() -> float:
+	return STAGE_FORWARD.angle_to(Vector3.FORWARD)
+	
 func _get_audience_position(index: int) -> Vector3:
 	if index < _audience_slots.size():
 		return _audience_slots[index]
@@ -73,33 +77,6 @@ func _get_audience_rotation() -> float:
 	return STAGE_FORWARD.angle_to(Vector3.BACK)
 
 
-func _get_actor_position() -> Vector3:
-	return ACTOR_POSITION
-
-
-func _get_actor_rotation() -> float:
-	return STAGE_FORWARD.angle_to(Vector3.FORWARD)
-
-
-func _get_all_peer_ids() -> Array[int]:
-	var ids: Array[int] = [1]
-	for pid in multiplayer.get_peers():
-		if pid != 1:
-			ids.append(pid)
-	var local_id: int = multiplayer.get_unique_id()
-	if local_id != 1 and local_id not in ids:
-		ids.append(local_id)
-	ids.sort()
-	return ids
-
-
-func _spawn_all_current_players() -> void:
-	for pid in _get_all_peer_ids():
-		if not players.has_node(str(pid)):
-			_spawn_player(pid)
-	players_changed.emit()
-
-
 @rpc("any_peer", "call_local", "reliable")
 func _player_is_ready() -> void:
 	var sender_id: int = multiplayer.get_remote_sender_id()
@@ -107,26 +84,19 @@ func _player_is_ready() -> void:
 		return
 	if not players.has_node(str(sender_id)):
 		_spawn_player(sender_id)
-
-	# Send existing peer list to the new client so they create local instances
-	for pid in _get_all_peer_ids():
-		if pid != sender_id and not players.has_node(str(pid)):
-			_spawn_player(pid)
-	players_changed.emit()
-
-
+	
 func _on_peer_connected(id: int) -> void:
-	if not multiplayer.is_server():
-		return
-	if not players.has_node(str(id)):
-		_spawn_player(id)
-	players_changed.emit()
+	_register_peer.rpc_id(id, _peer_info)
+
+@rpc("any_peer", "reliable")
+func _register_peer(new_peer_info) -> void:
+	var new_peer_id = multiplayer.get_remote_sender_id()
+	_peer_list[new_peer_id] = new_peer_info
 
 
 func _on_peer_disconnected(id: int) -> void:
 	if players.has_node(str(id)):
 		players.get_node(str(id)).queue_free()
-	players_changed.emit()
 
 
 func _on_server_disconnected() -> void:
@@ -142,14 +112,12 @@ func _spawn_player(id: int) -> void:
 	var player: CharacterBody3D = PLAYER_SCENE.instantiate()
 	player.name = str(id)
 
-	var peer_ids: Array[int] = _get_all_peer_ids()
-
 	var is_actor: bool = (id == round_manager.current_actor_peer_id)
 	if is_actor:
 		player.position = _get_actor_position()
 		player.rotation.y = _get_actor_rotation()
 	else:
-		var audience_index: int = peer_ids.find(id)
+		var audience_index: int = _peer_list.keys().find(id)
 		if audience_index == -1:
 			audience_index = 0
 		player.position = _get_audience_position(audience_index)
@@ -158,30 +126,18 @@ func _spawn_player(id: int) -> void:
 	player.set_meta("peer_id", id)
 	players.add_child(player, true)
 
-
-@rpc("any_peer", "call_remote", "reliable")
-func declare_winner_rpc(winner_peer_id: int) -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
-	if sender == 0:
-		sender = multiplayer.get_unique_id()
-	if sender != round_manager.current_actor_peer_id:
-		return
-	round_manager.declare_winner(winner_peer_id)
-
-
 func _on_actor_changed(peer_id: int) -> void:
-	var peer_ids: Array[int] = _get_all_peer_ids()
 	for child in players.get_children():
 		var pid: int = child.get_meta("peer_id", int(child.name))
 		var is_child_actor: bool = (pid == peer_id)
 		if child.has_method("set_role"):
 			child.set_role(is_child_actor)
 		if pid != peer_id:
-			var idx: int = peer_ids.find(pid)
+			var idx: int = _peer_list.keys().find(pid)
 			if idx == -1:
 				idx = 0
 			child.position = _get_audience_position(idx)
-			child.rotation.y = PI
+			child.rotation.y = _get_audience_rotation()
 		else:
 			child.position = _get_actor_position()
 			child.rotation.y = _get_actor_rotation()
