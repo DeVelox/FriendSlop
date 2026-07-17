@@ -15,7 +15,7 @@ extends CharacterBody3D
 var is_actor: bool = false
 var _playing_emote: bool = false
 var _in_round: bool = false
-@onready var _round_manager: Node = get_node_or_null("../../RoundManager")
+@onready var _round_manager: Node = get_node_or_null("../../../RoundManager")
 
 var synced_anim: String = "":
 	set(value):

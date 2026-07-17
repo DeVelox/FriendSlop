@@ -103,7 +103,13 @@ transform = Transform3D(0.70710677, 0.3642671, 0.6060606, 0, 0.8570991, -0.51515
 transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 3.6870942, 0.1814537)
 fov = 35.026844
 
-[node name="Players" type="Node3D" parent="." unique_id=1376149750]
+[node name="Multiplayer" type="Node" parent="." unique_id=953437698]
+
+[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="Multiplayer" unique_id=1107852081]
+_spawnable_scenes = PackedStringArray("uid://dejc3kvsj5lmt")
+spawn_path = NodePath("../Players")
+
+[node name="Players" type="Node3D" parent="Multiplayer" unique_id=1376149750]
 
 [node name="RoundManager" parent="." unique_id=1937311908 instance=ExtResource("3_kaalw")]
 

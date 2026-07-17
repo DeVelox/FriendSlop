@@ -7,7 +7,7 @@ const STAGE_FORWARD: Vector3 = Vector3(0.0, 0.0, -1.0)
 
 signal players_changed
 
-@onready var players: Node3D = $Players
+@onready var players: Node3D = $Multiplayer/Players
 @onready var round_manager: Node = $RoundManager
 @onready var spotlight: SpotLight3D = $CenterSpotlight
 @onready var camera: Camera3D = $StageCamera
@@ -26,32 +26,51 @@ func _ready() -> void:
 	_build_audience_slots()
 
 	if multiplayer.is_server():
-		_spawn_all_current_players()
-
+		#_spawn_all_current_players()
+		_spawn_player(1)
 		await get_tree().process_frame
 		round_manager.start_game()
 	else:
-		_request_peer_list.rpc_id(1)
+		_player_is_ready.rpc_id(1)
 
 
 func _build_audience_slots() -> void:
 	_audience_slots.clear()
-	var slot_count: int = 11
+	var max_players: int = 6
+	if Steamworks.lobby_id > 0:
+		var lobby_limit: int = Steam.getLobbyMemberLimit(Steamworks.lobby_id)
+		if lobby_limit > 0:
+			max_players = lobby_limit
+	var slot_count: int = maxi(max_players - 1, 1)
 	var spread_dir: Vector3 = STAGE_FORWARD.cross(Vector3.UP).normalized()
 	var center: Vector3 = ACTOR_POSITION + STAGE_FORWARD * 10.0
 	center.y = 0.5
-	var spread: float = 12.0
 
-	for i in slot_count:
-		var t: float = float(i) / maxf(slot_count - 1, 1) - 0.5
-		var pos: Vector3 = center + spread_dir * t * spread
+	var front_row_count: int = mini(slot_count, 5)
+	var back_row_count: int = slot_count - front_row_count
+
+	var front_spread: float = float(front_row_count) * 2.5
+	for i in front_row_count:
+		var t: float = float(i) / maxf(front_row_count - 1, 1) - 0.5
+		var pos: Vector3 = center + spread_dir * t * front_spread
 		_audience_slots.append(pos)
+
+	if back_row_count > 0:
+		var back_spread: float = float(back_row_count) * 2.5
+		var back_center: Vector3 = center + STAGE_FORWARD * 3.0
+		for i in back_row_count:
+			var t: float = float(i) / maxf(back_row_count - 1, 1) - 0.5
+			var pos: Vector3 = back_center + spread_dir * t * back_spread
+			_audience_slots.append(pos)
 
 
 func _get_audience_position(index: int) -> Vector3:
 	if index < _audience_slots.size():
 		return _audience_slots[index]
 	return Vector3(0.0, 0.5, 20.0)
+	
+func _get_audience_rotation() -> float:
+	return STAGE_FORWARD.angle_to(Vector3.BACK)
 
 
 func _get_actor_position() -> Vector3:
@@ -81,11 +100,26 @@ func _spawn_all_current_players() -> void:
 	players_changed.emit()
 
 
+@rpc("any_peer", "call_local", "reliable")
+func _player_is_ready() -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if sender_id == 0:
+		return
+	if not players.has_node(str(sender_id)):
+		_spawn_player(sender_id)
+
+	# Send existing peer list to the new client so they create local instances
+	for pid in _get_all_peer_ids():
+		if pid != sender_id and not players.has_node(str(pid)):
+			_spawn_player(pid)
+	players_changed.emit()
+
+
 func _on_peer_connected(id: int) -> void:
+	if not multiplayer.is_server():
+		return
 	if not players.has_node(str(id)):
 		_spawn_player(id)
-	if multiplayer.is_server():
-		_receive_peer_list.rpc_id(id, _get_all_peer_ids(), round_manager.current_actor_peer_id)
 	players_changed.emit()
 
 
@@ -119,29 +153,10 @@ func _spawn_player(id: int) -> void:
 		if audience_index == -1:
 			audience_index = 0
 		player.position = _get_audience_position(audience_index)
-		player.rotation.y = PI
+		player.rotation.y = _get_audience_rotation()
 
 	player.set_meta("peer_id", id)
 	players.add_child(player, true)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _request_peer_list() -> void:
-	if not multiplayer.is_server():
-		return
-	var sender: int = multiplayer.get_remote_sender_id()
-	_receive_peer_list.rpc_id(sender, _get_all_peer_ids(), round_manager.current_actor_peer_id)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _receive_peer_list(peer_ids: Array, actor_id: int) -> void:
-	if multiplayer.is_server():
-		return
-	round_manager.current_actor_peer_id = actor_id
-	for pid in peer_ids:
-		if not players.has_node(str(pid)):
-			_spawn_player(pid)
-	players_changed.emit()
 
 
 @rpc("any_peer", "call_remote", "reliable")
