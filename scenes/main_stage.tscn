@@ -47,6 +47,11 @@ tonemap_white = 6.0
 albedo_color = Color(0.5, 0.3, 0.15, 1)
 roughness = 0.85
 
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_wpcyk"]
+properties/0/path = NodePath("../../CenterSpotlight:visible")
+properties/0/spawn = true
+properties/0/replication_mode = 2
+
 [node name="MainStage" type="Node3D" unique_id=1411697808]
 script = ExtResource("1_pegp3")
 
@@ -104,6 +109,10 @@ transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 3
 fov = 35.026844
 
 [node name="Multiplayer" type="Node" parent="." unique_id=953437698]
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="Multiplayer" unique_id=1660757825]
+root_path = NodePath("../MultiplayerSpawner")
+replication_config = SubResource("SceneReplicationConfig_wpcyk")
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="Multiplayer" unique_id=1107852081]
 _spawnable_scenes = PackedStringArray("uid://dejc3kvsj5lmt")

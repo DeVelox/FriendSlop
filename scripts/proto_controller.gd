@@ -143,7 +143,7 @@ func _on_round_started(_actor_peer_id: int, _prompt: String) -> void:
 	_in_round = true
 
 
-func _on_round_ended(_winner_peer_id: int) -> void:
+func _on_round_ended() -> void:
 	_in_round = false
 
 

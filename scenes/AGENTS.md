@@ -7,7 +7,7 @@ This folder contains all Godot `.tscn` scene files. Scenes are the visual and st
 | Scene | Purpose |
 |-------|---------|
 | `main_stage.tscn` | The main game scene — the theater environment. Contains stage geometry, lighting, spotlight, camera, player spawn container, `MultiplayerSpawner`, and `RoundManager`. This is the scene loaded after lobby transition. |
-| `game_hud.tscn` | In-game HUD overlay (CanvasLayer). Shows round timer, actor UI (player buttons to declare winner), and audience UI (emote buttons). |
+| `game_hud.tscn` | In-game HUD overlay (CanvasLayer). Shows round timer and audience UI (emote buttons). |
 | `round_manager.tscn` | Standalone `RoundManager` scene. Shares its script with the `RoundManager` node inside `main_stage.tscn`. |
 | `player/proto_controller.tscn` | The player character. See `player/AGENTS.md` for details. |
 
