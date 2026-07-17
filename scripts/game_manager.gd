@@ -37,15 +37,15 @@ func _ready() -> void:
 func _build_audience_slots() -> void:
 	_audience_slots.clear()
 	var slot_count: int = 11
-	var z_start: float = 15.0
-	var z_end: float = 25.0
-	var z_step: float = (z_end - z_start) / maxf(slot_count - 1, 1)
-	var x_spread: float = 6.0
+	var spread_dir: Vector3 = STAGE_FORWARD.cross(Vector3.UP).normalized()
+	var center: Vector3 = ACTOR_POSITION + STAGE_FORWARD * 10.0
+	center.y = 0.5
+	var spread: float = 12.0
 
 	for i in slot_count:
-		var z: float = z_start + (z_step * i)
-		var x: float = sin(float(i) / float(slot_count - 1) * PI - PI / 2.0) * x_spread
-		_audience_slots.append(Vector3(x, 0.5, z))
+		var t: float = float(i) / maxf(slot_count - 1, 1) - 0.5
+		var pos: Vector3 = center + spread_dir * t * spread
+		_audience_slots.append(pos)
 
 
 func _get_audience_position(index: int) -> Vector3:

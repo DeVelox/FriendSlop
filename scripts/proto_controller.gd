@@ -43,6 +43,9 @@ var synced_anim: String = "":
 const STAGE_BOUNDS_MIN: Vector3 = Vector3(-10.0, 0.0, 18.0)
 const STAGE_BOUNDS_MAX: Vector3 = Vector3(10.0, 2.0, 28.0)
 
+const AUDIENCE_BOUNDS_MIN: Vector3 = Vector3(-7.0, 0.0, 8.0)
+const AUDIENCE_BOUNDS_MAX: Vector3 = Vector3(7.0, 2.0, 18.0)
+
 const EMOTE_KEYS: Dictionary = {
 	KEY_1: "Human Armature|Punch",
 	KEY_2: "Human Armature|Working",
@@ -94,8 +97,6 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(_delta: float) -> void:
 	if not is_multiplayer_authority():
 		return
-	if not is_actor:
-		return
 
 	velocity += get_gravity() * _delta
 
@@ -107,7 +108,7 @@ func _physics_process(_delta: float) -> void:
 			_play_movement("Human Armature|Jump")
 
 		var input_dir: Vector2 = Input.get_vector(input_left, input_right, input_forward, input_back)
-		move_dir = (transform.basis * Vector3(-input_dir.x, 0, -input_dir.y)).normalized()
+		move_dir = Vector3(-input_dir.x, 0, -input_dir.y).normalized()
 
 		if move_dir:
 			velocity.x = move_dir.x * base_speed
@@ -175,9 +176,11 @@ func _play_movement(anim_name: String) -> void:
 
 
 func _clamp_to_stage() -> void:
-	global_position.x = clampf(global_position.x, STAGE_BOUNDS_MIN.x, STAGE_BOUNDS_MAX.x)
-	global_position.z = clampf(global_position.z, STAGE_BOUNDS_MIN.z, STAGE_BOUNDS_MAX.z)
-	global_position.y = maxf(global_position.y, STAGE_BOUNDS_MIN.y)
+	var bounds_min: Vector3 = AUDIENCE_BOUNDS_MIN if not is_actor else STAGE_BOUNDS_MIN
+	var bounds_max: Vector3 = AUDIENCE_BOUNDS_MAX if not is_actor else STAGE_BOUNDS_MAX
+	global_position.x = clampf(global_position.x, bounds_min.x, bounds_max.x)
+	global_position.z = clampf(global_position.z, bounds_min.z, bounds_max.z)
+	global_position.y = maxf(global_position.y, bounds_min.y)
 
 
 func look_at_camera() -> void:
