@@ -12,7 +12,7 @@ const STAGE_FORWARD: Vector3 = Vector3(0.0, 0.0, -1.0)
 
 var _audience_slots: Array[Vector3] = []
 var _peer_list: Dictionary = {}
-var _peer_info: Dictionary = {"name": "Name"}
+var _peer_info: Dictionary = {"name": "Host"}
 
 
 func _ready() -> void:
@@ -26,9 +26,8 @@ func _ready() -> void:
 	_build_audience_slots()
 
 	if multiplayer.is_server():
+		_peer_list[1] = _peer_info
 		_spawn_player(1)
-		await get_tree().process_frame
-		round_manager.start_game()
 	else:
 		_player_is_ready.rpc_id(1)
 
@@ -86,13 +85,8 @@ func _player_is_ready() -> void:
 		_spawn_player(sender_id)
 	
 func _on_peer_connected(id: int) -> void:
-	_register_peer.rpc_id(id, _peer_info)
-
-@rpc("any_peer", "reliable")
-func _register_peer(new_peer_info) -> void:
-	var new_peer_id = multiplayer.get_remote_sender_id()
-	_peer_list[new_peer_id] = new_peer_info
-
+	if multiplayer.is_server():
+		_peer_list[id] = {"name": "Player %d" % id}
 
 func _on_peer_disconnected(id: int) -> void:
 	if players.has_node(str(id)):
@@ -117,10 +111,6 @@ func _spawn_player(id: int) -> void:
 		audience_index = 0
 	player.position = _get_audience_position(audience_index)
 	player.rotation.y = _get_audience_rotation()
-
-	if id == round_manager.current_actor_peer_id:
-		player.position = _get_actor_position()
-		player.rotation.y = _get_actor_rotation()
 
 	player.set_meta("peer_id", id)
 	players.add_child(player, true)

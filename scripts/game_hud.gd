@@ -16,6 +16,7 @@ extends CanvasLayer
 var _round_manager: Node = null
 var _current_state: int = -1
 var _current_actor_peer_id: int = 0
+var _start_button: Button = null
 
 const EMOTE_KEYS: Dictionary = {
 	KEY_1: "Human Armature|Punch",
@@ -46,6 +47,7 @@ func _ready() -> void:
 	_setup_timer_label()
 	_setup_prompt_label()
 	_build_emote_buttons()
+	_build_start_button()
 
 	_current_state = _round_manager.current_state
 	_current_actor_peer_id = _round_manager.current_actor_peer_id
@@ -112,13 +114,34 @@ func _build_emote_buttons() -> void:
 	emote_panel.add_child(container)
 
 
+func _build_start_button() -> void:
+	_start_button = Button.new()
+	_start_button.name = "StartButton"
+	_start_button.text = "Start Game"
+	_start_button.custom_minimum_size = Vector2(200, 50)
+	_start_button.set_anchors_preset(Control.PRESET_CENTER)
+	_start_button.offset_left = -100.0
+	_start_button.offset_top = -25.0
+	_start_button.offset_right = 100.0
+	_start_button.offset_bottom = 25.0
+	_start_button.add_theme_font_size_override("font_size", 24)
+	_start_button.add_theme_color_override("font_color", Color.WHITE)
+	_start_button.add_theme_stylebox_override("normal", _make_stylebox(Color(0.15, 0.4, 0.15, 0.9)))
+	_start_button.add_theme_stylebox_override("hover", _make_stylebox(Color(0.2, 0.55, 0.2, 1.0)))
+	_start_button.pressed.connect(_on_start_pressed)
+	_start_button.visible = false
+	add_child(_start_button)
+
+
 func _refresh_display() -> void:
-	var in_round: bool = (_current_state == 1 or _current_state == 2 or _current_state == 3)
+	var in_prep: bool = _current_state == 2
+	var in_round: bool = _current_state == 3
 	timer_label.visible = true
 	emote_panel.visible = in_round
-	prompt_label.visible = in_round and _is_local_actor()
+	prompt_label.visible = (in_prep or in_round) and _is_local_actor()
 	if prompt_label.visible:
 		prompt_label.text = _round_manager.current_prompt
+	_start_button.visible = _current_state == 0 and multiplayer.is_server()
 
 
 func _is_local_actor() -> bool:
@@ -152,3 +175,9 @@ func _on_emote_button_pressed(anim_name: String) -> void:
 	var player_node: Node = players_node.get_node_or_null(str(local_id))
 	if player_node != null and player_node.has_method("_play_emote"):
 		player_node._play_emote(anim_name)
+
+
+func _on_start_pressed() -> void:
+	if _round_manager == null:
+		return
+	_round_manager.begin_game()

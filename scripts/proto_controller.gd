@@ -183,16 +183,6 @@ func _clamp_to_stage() -> void:
 	global_position.y = maxf(global_position.y, bounds_min.y)
 
 
-func look_at_camera() -> void:
-	var cam: Camera3D = get_viewport().get_camera_3d()
-	if cam == null:
-		return
-	var dir: Vector3 = (cam.global_position - global_position).normalized()
-	dir.y = 0.0
-	if dir.length_squared() > 0.01:
-		rotation.y = atan2(dir.x, dir.z)
-
-
 func check_input_mappings() -> void:
 	var actions: Array[String] = [input_left, input_right, input_forward, input_back]
 	for action in actions:

@@ -48,7 +48,7 @@ albedo_color = Color(0.5, 0.3, 0.15, 1)
 roughness = 0.85
 
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_wpcyk"]
-properties/0/path = NodePath("../../CenterSpotlight:visible")
+properties/0/path = NodePath("../CenterSpotlight:visible")
 properties/0/spawn = true
 properties/0/replication_mode = 2
 
@@ -110,13 +110,12 @@ fov = 35.026844
 
 [node name="Multiplayer" type="Node" parent="." unique_id=953437698]
 
-[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="Multiplayer" unique_id=1660757825]
-root_path = NodePath("../MultiplayerSpawner")
-replication_config = SubResource("SceneReplicationConfig_wpcyk")
-
-[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="Multiplayer" unique_id=1107852081]
+[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="Multiplayer" unique_id=1207860551]
 _spawnable_scenes = PackedStringArray("uid://dejc3kvsj5lmt")
 spawn_path = NodePath("../Players")
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="Multiplayer" unique_id=776746105]
+replication_config = SubResource("SceneReplicationConfig_wpcyk")
 
 [node name="Players" type="Node3D" parent="Multiplayer" unique_id=1376149750]
 

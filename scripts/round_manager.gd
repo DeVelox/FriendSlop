@@ -88,15 +88,11 @@ func _process(delta: float) -> void:
 				_choose_next_actor()
 
 
-func start_game() -> void:
+func begin_game() -> void:
 	if not multiplayer.is_server():
 		return
-	_refresh_peer_list()
-	_actor_pool = _all_peers.duplicate()
-	_used_prompts.clear()
-	current_state = State.WAITING
-	state_changed.emit(current_state)
-	await get_tree().create_timer(5.0).timeout
+	if current_state != State.WAITING:
+		return
 	_choose_next_actor()
 
 
