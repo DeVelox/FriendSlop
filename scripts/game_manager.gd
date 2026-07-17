@@ -112,19 +112,30 @@ func _spawn_player(id: int) -> void:
 	var player: CharacterBody3D = PLAYER_SCENE.instantiate()
 	player.name = str(id)
 
-	var is_actor: bool = (id == round_manager.current_actor_peer_id)
-	if is_actor:
+	var audience_index: int = _peer_list.keys().find(id)
+	if audience_index == -1:
+		audience_index = 0
+	player.position = _get_audience_position(audience_index)
+	player.rotation.y = _get_audience_rotation()
+
+	if id == round_manager.current_actor_peer_id:
 		player.position = _get_actor_position()
 		player.rotation.y = _get_actor_rotation()
-	else:
-		var audience_index: int = _peer_list.keys().find(id)
-		if audience_index == -1:
-			audience_index = 0
-		player.position = _get_audience_position(audience_index)
-		player.rotation.y = _get_audience_rotation()
 
 	player.set_meta("peer_id", id)
 	players.add_child(player, true)
+
+func _reset_all_to_audience() -> void:
+	for child in players.get_children():
+		var pid: int = child.get_meta("peer_id", int(child.name))
+		var idx: int = _peer_list.keys().find(pid)
+		if idx == -1:
+			idx = 0
+		child.position = _get_audience_position(idx)
+		child.rotation.y = _get_audience_rotation()
+		if child.has_method("set_role"):
+			child.set_role(false)
+
 
 func _on_actor_changed(peer_id: int) -> void:
 	for child in players.get_children():
@@ -148,4 +159,4 @@ func _on_round_started(_actor_peer_id: int, _prompt: String) -> void:
 
 
 func _on_round_ended() -> void:
-	spotlight.visible = false
+	_reset_all_to_audience()

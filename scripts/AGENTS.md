@@ -6,7 +6,7 @@ This folder contains all GDScript files. Each script handles one major system. S
 
 | Script | System | Key Responsibilities |
 |--------|--------|---------------------|
-| `game_manager.gd` | Game orchestration | Server-side. Spawns/despawns players on connect/disconnect. Assigns actor vs audience positions. Manages spotlight state. |
+| `game_manager.gd` | Game orchestration | Server-side. Spawns/despawns players on connect/disconnect. All players spawn as audience. Resets everyone to audience at round end. Actor is positioned at stage when chosen. Manages spotlight state. |
 | `game_hud.gd` | In-game UI | CanvasLayer overlay. Synced round timer, emote buttons for audience. All gated by round state. |
 | `proto_controller.gd` | Player controller | Per-player CharacterBody3D. Role-based movement (actor only), emote input, animation playback and sync, stage boundary clamping, multiplayer authority setup. |
 | `round_manager.gd` | Round state machine | Server-authoritative. State flow: WAITING -> CHOOSING_ACTOR -> ACTOR_READY -> IN_ROUND -> ROUND_END. Handles actor selection from exhaustive pool, timer countdowns, prompt picking from word bank, RPC sync to clients. |

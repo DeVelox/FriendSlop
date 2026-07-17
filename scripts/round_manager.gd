@@ -17,9 +17,9 @@ signal reset_all_animations
 func _rpc_reset_all_animations() -> void:
 	reset_all_animations.emit()
 
-@export var round_time: float = 90.0
+@export var round_time: float = 30.0
 @export var prep_time: float = 5.0
-@export var end_pause: float = 3.0
+@export var end_pause: float = 5.0
 
 var current_state: State = State.WAITING
 var current_actor_peer_id: int = 0
@@ -94,6 +94,9 @@ func start_game() -> void:
 	_refresh_peer_list()
 	_actor_pool = _all_peers.duplicate()
 	_used_prompts.clear()
+	current_state = State.WAITING
+	state_changed.emit(current_state)
+	await get_tree().create_timer(5.0).timeout
 	_choose_next_actor()
 
 
