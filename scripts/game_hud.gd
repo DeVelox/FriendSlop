@@ -1,18 +1,21 @@
 extends CanvasLayer
 
-## In-game HUD: round timer, audience emote buttons.
+## In-game HUD: round timer, audience emote buttons, actor prompt display.
 
 @export var font_size_timer: int = 32
+@export var font_size_prompt: int = 24
 @export var font_size_emote: int = 16
 @export var panel_bg_color: Color = Color(0.0, 0.0, 0.0, 0.7)
 @export var button_bg_color: Color = Color(0.2, 0.2, 0.3, 0.9)
 @export var button_hover_color: Color = Color(0.3, 0.3, 0.5, 1.0)
 
 @onready var timer_label: Label = $TimerLabel
+@onready var prompt_label: Label = $PromptLabel
 @onready var emote_panel: MarginContainer = $EmotePanel
 
 var _round_manager: Node = null
 var _current_state: int = -1
+var _current_actor_peer_id: int = 0
 
 const EMOTE_KEYS: Dictionary = {
 	KEY_1: "Human Armature|Punch",
@@ -38,11 +41,14 @@ func _ready() -> void:
 
 	_round_manager.timer_updated.connect(_on_timer_updated)
 	_round_manager.state_changed.connect(_on_state_changed)
+	_round_manager.actor_changed.connect(_on_actor_changed)
 
 	_setup_timer_label()
+	_setup_prompt_label()
 	_build_emote_buttons()
 
 	_current_state = _round_manager.current_state
+	_current_actor_peer_id = _round_manager.current_actor_peer_id
 	_refresh_display()
 
 
@@ -60,6 +66,15 @@ func _setup_timer_label() -> void:
 	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	timer_label.visible = true
+
+
+func _setup_prompt_label() -> void:
+	prompt_label.text = ""
+	prompt_label.add_theme_font_size_override("font_size", font_size_prompt)
+	prompt_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.6))
+	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	prompt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	prompt_label.visible = false
 
 
 func _make_stylebox(bg_color: Color) -> StyleBoxFlat:
@@ -101,6 +116,13 @@ func _refresh_display() -> void:
 	var in_round: bool = (_current_state == 1 or _current_state == 2 or _current_state == 3)
 	timer_label.visible = true
 	emote_panel.visible = in_round
+	prompt_label.visible = in_round and _is_local_actor()
+	if prompt_label.visible:
+		prompt_label.text = _round_manager.current_prompt
+
+
+func _is_local_actor() -> bool:
+	return multiplayer.get_unique_id() == _current_actor_peer_id
 
 
 func _on_timer_updated(time_remaining: float) -> void:
@@ -111,6 +133,11 @@ func _on_timer_updated(time_remaining: float) -> void:
 
 func _on_state_changed(new_state: int) -> void:
 	_current_state = new_state
+	_refresh_display()
+
+
+func _on_actor_changed(peer_id: int) -> void:
+	_current_actor_peer_id = peer_id
 	_refresh_display()
 
 

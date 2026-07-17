@@ -43,3 +43,18 @@ theme_override_constants/margin_bottom = 5
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1344533873]
 replication_config = SubResource("SceneReplicationConfig_jna2d")
+
+[node name="PromptLabel" type="Label" parent="." unique_id=617861974]
+visible = false
+custom_minimum_size = Vector2(1000, 0)
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -500.0
+offset_top = 55.0
+offset_right = 500.0
+offset_bottom = 100.0
+grow_horizontal = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 1
