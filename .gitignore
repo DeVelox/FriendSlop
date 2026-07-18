@@ -11,7 +11,7 @@ opencode.json
 
 # Fennara MCP
 .fennara/
-addons/fennara/bin/
+addons/fennara/
 
 # GodotSteam native libs
 addons/godotsteam/osx/
