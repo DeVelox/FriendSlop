@@ -14,8 +14,8 @@ signal reset_all_animations
 signal correct_answer(peer_id: int, display_name: String)
 
 
-@export var round_time: float = 10.0
-@export var prep_time: float = 7.0
+@export var round_time: float = 30.0
+@export var prep_time: float = 3.0
 @export var end_pause: float = 3.0
 
 var current_state: State = State.WAITING
@@ -92,11 +92,12 @@ func begin_game() -> void:
 		return
 	if current_state != State.WAITING:
 		return
+	_refresh_peer_list()
 	_choose_next_actor()
 
 
 func set_round_time(time: float) -> void:
-	round_time = maxf(time, 10.0)
+	round_time = maxf(time, 30.0)
 
 
 func _get_spotlight() -> SpotLight3D:

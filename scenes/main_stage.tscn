@@ -72,7 +72,7 @@ light_energy = 0.3
 shadow_enabled = true
 
 [node name="CenterSpotlight" type="SpotLight3D" parent="." unique_id=285880855]
-transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 12, 22.603233)
+transform = Transform3D(1, 0, 0, 0, -0.81029797, 0.58601815, 0, -0.58601815, -0.81029797, 0, 12.862676, 10.311406)
 visible = false
 light_energy = 12.0
 shadow_enabled = true
