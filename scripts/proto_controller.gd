@@ -86,6 +86,8 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
 		return
+	if _is_gui_focused():
+		return
 	if not _can_emote:
 		return
 	if not event is InputEventKey:
@@ -98,6 +100,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(_delta: float) -> void:
 	if not is_multiplayer_authority():
+		return
+	if _is_gui_focused():
 		return
 
 	velocity += get_gravity() * _delta
@@ -186,6 +190,11 @@ func _clamp_to_stage() -> void:
 	global_position.x = clampf(global_position.x, bounds_min.x, bounds_max.x)
 	global_position.z = clampf(global_position.z, bounds_min.z, bounds_max.z)
 	global_position.y = maxf(global_position.y, bounds_min.y)
+
+
+func _is_gui_focused() -> bool:
+	var focus_owner := get_viewport().gui_get_focus_owner()
+	return focus_owner is LineEdit
 
 
 func check_input_mappings() -> void:

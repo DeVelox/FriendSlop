@@ -11,6 +11,7 @@ signal actor_changed(peer_id: int)
 signal state_changed(new_state: State)
 signal timer_updated(time_remaining: float)
 signal reset_all_animations
+signal correct_answer(peer_id: int, display_name: String)
 
 
 @export var round_time: float = 10.0
@@ -21,6 +22,8 @@ var current_state: State = State.WAITING
 var current_actor_peer_id: int = 0
 var current_prompt: String = ""
 var time_remaining: float = 0.0
+var winner_peer_id: int = 0
+var winner_name: String = ""
 
 
 var _actor_pool: Array[int] = []
@@ -110,6 +113,8 @@ func _refresh_peer_list() -> void:
 
 
 func _choose_next_actor() -> void:
+	winner_peer_id = 0
+	winner_name = ""
 	current_state = State.CHOOSING_ACTOR
 	state_changed.emit(current_state)
 
@@ -197,3 +202,28 @@ func _sync_actor_info(peer_id: int, prompt: String) -> void:
 	current_actor_peer_id = peer_id
 	current_prompt = prompt
 	actor_changed.emit(peer_id)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func submit_guess(guess: String) -> void:
+	if not multiplayer.is_server():
+		return
+	if current_state != State.IN_ROUND:
+		return
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if sender_id == current_actor_peer_id:
+		return
+	if sender_id == 0:
+		return
+	if guess.strip_edges().to_lower() == current_prompt.strip_edges().to_lower():
+		winner_peer_id = sender_id
+		winner_name = "Player %d" % sender_id
+		_sync_winner.rpc(sender_id, winner_name)
+		_end_round()
+
+
+@rpc("authority", "call_local", "reliable")
+func _sync_winner(peer_id: int, display_name: String) -> void:
+	winner_peer_id = peer_id
+	winner_name = display_name
+	correct_answer.emit(peer_id, display_name)
