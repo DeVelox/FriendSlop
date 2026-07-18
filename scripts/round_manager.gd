@@ -108,6 +108,7 @@ func _get_spotlight() -> SpotLight3D:
 
 func _refresh_peer_list() -> void:
 	_all_peers.clear()
+	_all_peers.append(1)
 	for peer: int in multiplayer.get_peers():
 		_all_peers.append(peer)
 

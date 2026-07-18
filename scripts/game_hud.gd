@@ -14,6 +14,8 @@ extends CanvasLayer
 @export var button_hover_color: Color = Color(0.3, 0.3, 0.5, 1.0)
 @export var result_bg_color: Color = Color(0.15, 0.15, 0.25, 0.95)
 @export var result_hover_color: Color = Color(0.25, 0.25, 0.45, 1.0)
+@export var freeze_active_color: Color = Color(0.6, 0.2, 0.2, 0.9)
+@export var lock_active_color: Color = Color(0.2, 0.4, 0.6, 0.9)
 
 @onready var timer_label: Label = $TimerLabel
 @onready var prompt_label: Label = $PromptLabel
@@ -28,6 +30,10 @@ var _results_scroll: ScrollContainer = null
 var _results_box: VBoxContainer = null
 var _search_box: LineEdit = null
 var _winner_label: Label = null
+var _freeze_btn: Button = null
+var _lock_btn: Button = null
+var _speed_label: Label = null
+var _speed_slider: HSlider = null
 
 const EMOTE_KEYS: Dictionary = {
 	KEY_1: "Human Armature|Punch",
@@ -101,17 +107,94 @@ func _make_stylebox(bg_color: Color) -> StyleBoxFlat:
 	return sb
 
 
+func _get_local_player() -> Node:
+	var game_manager: Node = get_parent()
+	if game_manager == null:
+		return null
+	var players_node: Node3D = game_manager.get_node_or_null("Multiplayer/Players")
+	if players_node == null:
+		return null
+	var local_id: int = multiplayer.get_unique_id()
+	return players_node.get_node_or_null(str(local_id))
+
+
+func _player_method(method_name: String, arg: Variant = null) -> Variant:
+	var player: Node = _get_local_player()
+	if player == null or not player.has_method(method_name):
+		return null
+	if arg != null:
+		return player.call(method_name, arg)
+	return player.call(method_name)
+
+
 func _build_emote_buttons() -> void:
 	for child in emote_panel.get_children():
-		if child is HBoxContainer:
-			for btn_child in child.get_children():
-				btn_child.queue_free()
+		if child is VBoxContainer or child is HBoxContainer:
+			for sub_child in child.get_children():
+				sub_child.queue_free()
 			child.queue_free()
 
-	var container: HBoxContainer = HBoxContainer.new()
-	container.name = "EmoteButtons"
-	container.alignment = BoxContainer.ALIGNMENT_CENTER
-	container.add_theme_constant_override("separation", 8)
+	var outer_box: VBoxContainer = VBoxContainer.new()
+	outer_box.name = "ControlsBox"
+	outer_box.add_theme_constant_override("separation", 4)
+
+	var controls_row: HBoxContainer = HBoxContainer.new()
+	controls_row.name = "ControlsRow"
+	controls_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	controls_row.add_theme_constant_override("separation", 8)
+
+	_freeze_btn = Button.new()
+	_freeze_btn.name = "FreezeBtn"
+	_freeze_btn.text = "Freeze"
+	_freeze_btn.custom_minimum_size = Vector2(80, 32)
+	_freeze_btn.focus_mode = Control.FOCUS_NONE
+	_freeze_btn.add_theme_font_size_override("font_size", font_size_emote)
+	_freeze_btn.add_theme_color_override("font_color", Color.WHITE)
+	_freeze_btn.add_theme_stylebox_override("normal", _make_stylebox(button_bg_color))
+	_freeze_btn.add_theme_stylebox_override("hover", _make_stylebox(button_hover_color))
+	_freeze_btn.pressed.connect(_on_freeze_pressed)
+	controls_row.add_child(_freeze_btn)
+
+	_lock_btn = Button.new()
+	_lock_btn.name = "LockBtn"
+	_lock_btn.text = "Lock"
+	_lock_btn.custom_minimum_size = Vector2(80, 32)
+	_lock_btn.focus_mode = Control.FOCUS_NONE
+	_lock_btn.add_theme_font_size_override("font_size", font_size_emote)
+	_lock_btn.add_theme_color_override("font_color", Color.WHITE)
+	_lock_btn.add_theme_stylebox_override("normal", _make_stylebox(button_bg_color))
+	_lock_btn.add_theme_stylebox_override("hover", _make_stylebox(button_hover_color))
+	_lock_btn.pressed.connect(_on_lock_pressed)
+	controls_row.add_child(_lock_btn)
+
+	_speed_label = Label.new()
+	_speed_label.name = "SpeedLabel"
+	_speed_label.text = "1.0x"
+	_speed_label.add_theme_font_size_override("font_size", font_size_emote)
+	_speed_label.add_theme_color_override("font_color", Color.WHITE)
+	_speed_label.custom_minimum_size = Vector2(40, 0)
+	_speed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	controls_row.add_child(_speed_label)
+
+	_speed_slider = HSlider.new()
+	_speed_slider.name = "SpeedSlider"
+	_speed_slider.custom_minimum_size = Vector2(120, 32)
+	_speed_slider.focus_mode = Control.FOCUS_NONE
+	_speed_slider.min_value = 0.25
+	_speed_slider.max_value = 4.0
+	_speed_slider.step = 0.25
+	_speed_slider.value = 1.0
+	_speed_slider.tick_count = 15
+	_speed_slider.ticks_on_borders = true
+	_speed_slider.value_changed.connect(_on_speed_changed)
+	controls_row.add_child(_speed_slider)
+
+	outer_box.add_child(controls_row)
+
+	var emote_row: HBoxContainer = HBoxContainer.new()
+	emote_row.name = "EmoteButtons"
+	emote_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	emote_row.add_theme_constant_override("separation", 8)
 
 	for anim_name in EMOTE_KEYS.values():
 		var btn: Button = Button.new()
@@ -123,9 +206,10 @@ func _build_emote_buttons() -> void:
 		btn.add_theme_stylebox_override("normal", _make_stylebox(button_bg_color))
 		btn.add_theme_stylebox_override("hover", _make_stylebox(button_hover_color))
 		btn.pressed.connect(_on_emote_button_pressed.bind(anim_name))
-		container.add_child(btn)
+		emote_row.add_child(btn)
 
-	emote_panel.add_child(container)
+	outer_box.add_child(emote_row)
+	emote_panel.add_child(outer_box)
 
 
 func _build_start_button() -> void:
@@ -169,6 +253,17 @@ func _refresh_display() -> void:
 		_winner_label.text = "Nobody guessed!"
 		_winner_label.visible = true
 
+	if _current_state in [0, 4]:
+		_reset_controls()
+
+
+func _reset_controls() -> void:
+	_update_toggle_style(_freeze_btn, false, freeze_active_color)
+	_update_toggle_style(_lock_btn, false, lock_active_color)
+	_speed_slider.set_value_no_signal(1.0)
+	_speed_label.text = "1.0x"
+	_player_method("set_speed_scale", 1.0)
+
 
 func _is_local_actor() -> bool:
 	return multiplayer.get_unique_id() == _current_actor_peer_id
@@ -191,16 +286,33 @@ func _on_actor_changed(peer_id: int) -> void:
 
 
 func _on_emote_button_pressed(anim_name: String) -> void:
-	var game_manager: Node = get_parent()
-	if game_manager == null:
-		return
-	var players_node: Node3D = game_manager.get_node_or_null("Multiplayer/Players")
-	if players_node == null:
-		return
-	var local_id: int = multiplayer.get_unique_id()
-	var player_node: Node = players_node.get_node_or_null(str(local_id))
-	if player_node != null and player_node.has_method("_play_emote"):
-		player_node._play_emote(anim_name)
+	_player_method("_play_emote", anim_name)
+
+
+func _on_freeze_pressed() -> void:
+	var result: Variant = _player_method("toggle_freeze")
+	if result is bool:
+		_update_toggle_style(_freeze_btn, result, freeze_active_color)
+
+
+func _on_lock_pressed() -> void:
+	var result: Variant = _player_method("toggle_lock")
+	if result is bool:
+		_update_toggle_style(_lock_btn, result, lock_active_color)
+
+
+func _on_speed_changed(value: float) -> void:
+	_speed_label.text = "%.2fx" % value
+	_player_method("set_speed_scale", value)
+
+
+func _update_toggle_style(btn: Button, active: bool, active_color: Color) -> void:
+	if active:
+		btn.add_theme_stylebox_override("normal", _make_stylebox(active_color))
+		btn.add_theme_stylebox_override("hover", _make_stylebox(active_color.lightened(0.15)))
+	else:
+		btn.add_theme_stylebox_override("normal", _make_stylebox(button_bg_color))
+		btn.add_theme_stylebox_override("hover", _make_stylebox(button_hover_color))
 
 
 func _on_start_pressed() -> void:

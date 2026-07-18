@@ -16,6 +16,9 @@ var is_actor: bool = false
 var _playing_emote: bool = false
 var _in_round: bool = false
 var _can_emote: bool = false
+var _anim_frozen: bool = false
+var _anim_locked: bool = false
+var _emote_speed: float = 1.0
 @onready var _round_manager: Node = get_node_or_null("../../../RoundManager")
 
 var synced_anim: String = "":
@@ -28,6 +31,8 @@ var synced_anim: String = "":
 		if anim_player == null:
 			return
 		if is_multiplayer_authority():
+			return
+		if _anim_frozen or _anim_locked:
 			return
 		if EMOTE_KEYS.values().has(value):
 			var anim: Animation = anim_player.get_animation(value)
@@ -90,6 +95,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not _can_emote:
 		return
+	if _anim_frozen or _anim_locked:
+		return
 	if not event is InputEventKey:
 		return
 	if not event.pressed:
@@ -126,6 +133,9 @@ func _physics_process(_delta: float) -> void:
 	move_and_slide()
 	_clamp_to_stage()
 
+	if _anim_frozen or _anim_locked:
+		return
+
 	if not _playing_emote:
 		if is_on_floor():
 			if move_dir.length_squared() > 0.01:
@@ -155,15 +165,45 @@ func _on_round_ended() -> void:
 
 
 func _on_reset_all_animations() -> void:
-	if anim_player != null and anim_player.has_animation("Human Armature|Idle"):
-		anim_player.play("Human Armature|Idle")
+	_anim_frozen = false
+	_anim_locked = false
+	_emote_speed = 1.0
+	if anim_player != null:
+		anim_player.speed_scale = 1.0
+		if anim_player.has_animation("Human Armature|Idle"):
+			anim_player.play("Human Armature|Idle")
 	_playing_emote = false
 	synced_anim = "Human Armature|Idle"
 
 
+func toggle_freeze() -> bool:
+	if anim_player == null:
+		return false
+	_anim_frozen = not _anim_frozen
+	if _anim_frozen:
+		anim_player.pause()
+	else:
+		anim_player.play()
+	return _anim_frozen
+
+
+func toggle_lock() -> bool:
+	_anim_locked = not _anim_locked
+	if _anim_locked and anim_player != null and anim_player.is_animation_active():
+		_playing_emote = true
+	return _anim_locked
+
+
+func set_speed_scale(value: float) -> void:
+	_emote_speed = value
+	if anim_player != null:
+		anim_player.speed_scale = value
+
 
 func _play_emote(anim_name: String) -> void:
 	if anim_player == null:
+		return
+	if _anim_frozen or _anim_locked:
 		return
 	if anim_player.has_animation(anim_name):
 		var anim: Animation = anim_player.get_animation(anim_name)
@@ -176,6 +216,8 @@ func _play_emote(anim_name: String) -> void:
 
 func _play_movement(anim_name: String) -> void:
 	if anim_player == null:
+		return
+	if _anim_frozen or _anim_locked:
 		return
 	if anim_player.has_animation(anim_name):
 		if anim_player.current_animation != anim_name:
