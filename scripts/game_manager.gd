@@ -34,7 +34,7 @@ func _get_actor_position() -> Vector3:
 	return ACTOR_POSITION
 
 func _get_actor_rotation() -> float:
-	return STAGE_FORWARD.angle_to(Vector3.FORWARD)
+	return STAGE_FORWARD.angle_to(Vector3.BACK)
 	
 func _get_audience_position(index: int) -> Vector3:
 	var shifted_position = Vector3(-6.25, 0.0, 13.0)
@@ -46,7 +46,7 @@ func _get_audience_position(index: int) -> Vector3:
 	return shifted_position
 	
 func _get_audience_rotation() -> float:
-	return STAGE_FORWARD.angle_to(Vector3.BACK)
+	return STAGE_FORWARD.angle_to(Vector3.FORWARD)
 
 
 func _get_steam_username() -> String:
@@ -96,9 +96,10 @@ func _spawn_player(id: int) -> void:
 # TODO: update positions when somebody disconnects as well
 func _spawn_function(data: Dictionary) -> CharacterBody3D:
 	var player: CharacterBody3D = PLAYER_SCENE.instantiate()
+	player.name = str(data.peer_id)
 	player.position = data.position
 	player.rotation.y = data.rotation
-	player.name = str(data.peer_id)
+	player.set_spawn_rotation(data.rotation)
 	player.set_meta("position", data.position)
 	player.set_meta("rotation", data.rotation)
 	player.set_meta("peer_id", data.peer_id)
@@ -112,6 +113,8 @@ func _on_synced_actor_changed(peer_id: int) -> void:
 		if pid == peer_id:
 			child.position = _get_actor_position()
 			child.rotation.y = _get_actor_rotation()
+			child.set_spawn_rotation(_get_actor_rotation())
 		else:
 			child.position = child.get_meta("position")
 			child.rotation.y = child.get_meta("rotation")
+			child.set_spawn_rotation(child.get_meta("rotation"))

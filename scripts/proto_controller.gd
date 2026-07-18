@@ -18,6 +18,7 @@ var _can_emote: bool = false
 var _anim_frozen: bool = false
 var _anim_locked: bool = false
 var _emote_speed: float = 1.0
+var _spawn_rotation: float = 0.0
 @onready var _round_manager: Node = get_node_or_null("../../../RoundManager")
 
 var synced_anim: String = "":
@@ -99,6 +100,7 @@ func _enter_tree() -> void:
 
 
 func _ready() -> void:
+	_spawn_rotation = rotation.y
 	check_input_mappings()
 	await get_tree().process_frame
 	var rm: Node = _round_manager
@@ -119,7 +121,10 @@ func _ready() -> void:
 			_can_emote = (rm.current_state == 3)
 	else:
 		set_process(false)
-		set_physics_process(false)
+		if rm != null:
+			rm.state_changed.connect(_on_round_state_changed)
+			rm.round_started.connect(_on_round_started)
+			rm.round_ended.connect(_on_round_ended)
 
 
 
@@ -140,7 +145,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_play_emote(EMOTE_KEYS[event.keycode])
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
 		return
 	if _is_gui_focused():
@@ -168,6 +173,13 @@ func _physics_process(_delta: float) -> void:
 	if _anim_frozen or _anim_locked:
 		return
 
+	if is_multiplayer_authority():
+		if move_dir.length_squared() > 0.01:
+			var target_rot: float = atan2(move_dir.x, move_dir.z)
+			rotation.y = lerp_angle(rotation.y, target_rot, 10.0 * delta)
+		else:
+			rotation.y = lerp_angle(rotation.y, _spawn_rotation, 5.0 * delta)
+
 	if not _playing_emote:
 		if anim_player.current_animation != "Human Armature|Jump":
 			if move_dir.length_squared() > 0.01:
@@ -179,6 +191,10 @@ func _physics_process(_delta: float) -> void:
 func set_role(peer_id: int) -> void:
 	is_actor = (peer_id == int(name))
 	model.visible = true
+
+
+func set_spawn_rotation(rot: float) -> void:
+	_spawn_rotation = rot
 
 
 func _on_round_state_changed(new_state: int) -> void:
@@ -221,6 +237,7 @@ func _on_reset_all_animations() -> void:
 			anim_player.play("Human Armature|Idle")
 	_playing_emote = false
 	synced_anim = "Human Armature|Idle"
+	rotation.y = _spawn_rotation
 
 
 func toggle_freeze() -> bool:
