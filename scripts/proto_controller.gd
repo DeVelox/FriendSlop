@@ -5,7 +5,6 @@ extends CharacterBody3D
 ## Audience: seated, triggers reaction emotes.
 
 @export var base_speed: float = 5.0
-@export var jump_velocity: float = 4.5
 @export var input_left: String = "ui_left"
 @export var input_right: String = "ui_right"
 @export var input_forward: String = "ui_up"
@@ -35,9 +34,10 @@ var synced_anim: String = "":
 		if _anim_frozen or _anim_locked or synced_anim_frozen:
 			return
 		var anim: Animation = anim_player.get_animation(value)
-		if anim != null:
+		if anim != null and value != "Human Armature|Jump":
 			anim.loop_mode = Animation.LOOP_LINEAR
 		if anim_player.has_animation(value) and anim_player.current_animation != value:
+			anim_player.speed_scale = synced_anim_speed
 			anim_player.play(value)
 
 var synced_anim_frozen: bool = false:
@@ -84,7 +84,7 @@ const STAGE_BOUNDS_MIN: Vector3 = Vector3(-10.0, 0.0, 18.0)
 const STAGE_BOUNDS_MAX: Vector3 = Vector3(10.0, 2.0, 28.0)
 
 const AUDIENCE_BOUNDS_MIN: Vector3 = Vector3(-7.0, 0.0, 8.0)
-const AUDIENCE_BOUNDS_MAX: Vector3 = Vector3(7.0, 2.0, 13.0)
+const AUDIENCE_BOUNDS_MAX: Vector3 = Vector3(7.0, 2.0, 18.0)
 
 const EMOTE_KEYS: Dictionary = {
 	KEY_1: "Human Armature|Punch",
@@ -112,6 +112,7 @@ func _ready() -> void:
 		$Head/Camera3D.current = false
 		if rm != null:
 			rm.state_changed.connect(_on_round_state_changed)
+			anim_player.animation_finished.connect(_on_animation_finished)
 			rm.round_started.connect(_on_round_started)
 			rm.round_ended.connect(_on_round_ended)
 			_in_round = (rm.current_state == 3)
@@ -145,13 +146,10 @@ func _physics_process(_delta: float) -> void:
 	if _is_gui_focused():
 		return
 
-	velocity += get_gravity() * _delta
-
 	var move_dir := Vector3.ZERO
 
 	if _in_round:
-		if Input.is_action_just_pressed(input_jump) and is_on_floor():
-			velocity.y = jump_velocity
+		if Input.is_action_just_pressed(input_jump) and anim_player.current_animation != "Human Armature|Jump":
 			_play_movement("Human Armature|Jump")
 
 		var input_dir: Vector2 = Input.get_vector(input_left, input_right, input_forward, input_back)
@@ -171,7 +169,7 @@ func _physics_process(_delta: float) -> void:
 		return
 
 	if not _playing_emote:
-		if is_on_floor():
+		if anim_player.current_animation != "Human Armature|Jump":
 			if move_dir.length_squared() > 0.01:
 				_play_movement("Human Armature|Walk")
 			else:
@@ -196,6 +194,19 @@ func _on_round_started(_actor_peer_id: int, _prompt: String) -> void:
 func _on_round_ended() -> void:
 	_in_round = false
 	_can_emote = false
+
+
+func _on_animation_finished(anim_name: String) -> void:
+	if anim_name != "Human Armature|Jump":
+		return
+	if anim_player == null:
+		return
+	if _anim_frozen or _anim_locked:
+		return
+	if _playing_emote:
+		return
+	anim_player.play("Human Armature|Idle")
+	synced_anim = "Human Armature|Idle"
 
 
 func _on_reset_all_animations() -> void:
@@ -227,8 +238,6 @@ func toggle_freeze() -> bool:
 
 func toggle_lock() -> bool:
 	_anim_locked = not _anim_locked
-	if _anim_locked and anim_player != null and anim_player.is_animation_active():
-		_playing_emote = true
 	return _anim_locked
 
 
@@ -248,6 +257,7 @@ func _play_emote(anim_name: String) -> void:
 		var anim: Animation = anim_player.get_animation(anim_name)
 		if anim != null:
 			anim.loop_mode = Animation.LOOP_LINEAR
+		anim_player.speed_scale = _emote_speed
 		anim_player.play(anim_name)
 		_playing_emote = true
 		synced_anim = anim_name
@@ -259,12 +269,18 @@ func _play_movement(anim_name: String) -> void:
 	if _anim_frozen or _anim_locked:
 		return
 	if anim_player.has_animation(anim_name):
-		var anim: Animation = anim_player.get_animation(anim_name)
-		if anim != null:
-			anim.loop_mode = Animation.LOOP_LINEAR
-		if anim_player.current_animation != anim_name:
+		if anim_name == "Human Armature|Jump":
+			anim_player.speed_scale = 1.0
 			anim_player.play(anim_name)
 			synced_anim = anim_name
+		else:
+			var anim: Animation = anim_player.get_animation(anim_name)
+			if anim != null:
+				anim.loop_mode = Animation.LOOP_LINEAR
+			if anim_player.current_animation != anim_name:
+				anim_player.speed_scale = _emote_speed
+				anim_player.play(anim_name)
+				synced_anim = anim_name
 		_playing_emote = false
 
 
