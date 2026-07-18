@@ -217,7 +217,10 @@ func submit_guess(guess: String) -> void:
 		return
 	if guess.strip_edges().to_lower() == current_prompt.strip_edges().to_lower():
 		winner_peer_id = sender_id
-		winner_name = "Player %d" % sender_id
+		var game_manager: Node = get_parent()
+		var peer_list: Dictionary = game_manager._peer_list if game_manager else {}
+		var winner_info: Dictionary = peer_list.get(sender_id, {})
+		winner_name = winner_info.get("name", "Player %d" % sender_id)
 		_sync_winner.rpc(sender_id, winner_name)
 		_end_round()
 

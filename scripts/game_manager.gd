@@ -50,8 +50,8 @@ func _get_audience_rotation() -> float:
 
 
 func _get_steam_username() -> String:
-	if Engine.has_singleton("Steam") and Steam.getPersonaName() != "":
-		return Steam.getPersonaName()
+	if Engine.has_singleton("Steam") and Steam.isSteamRunning():
+		return Steamworks.username
 	return ""
 
 
