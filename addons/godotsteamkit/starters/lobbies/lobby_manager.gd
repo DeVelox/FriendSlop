@@ -89,7 +89,7 @@ func _on_host_local_pressed() -> void:
 	var err: int = peer.create_server(LOCAL_PORT)
 	if err == OK:
 		multiplayer.multiplayer_peer = peer
-		get_tree().change_scene_to_file("res://scenes/main_stage.tscn")
+		get_tree().change_scene_to_file("res://scenes/game_lobby.tscn")
 	else:
 		printerr("Failed to create local server: %s" % err)
 
@@ -107,7 +107,7 @@ func _on_join_local_pressed() -> void:
 
 func _on_connected_to_local() -> void:
 	multiplayer.connected_to_server.disconnect(_on_connected_to_local)
-	get_tree().change_scene_to_file("res://scenes/main_stage.tscn")
+	get_tree().change_scene_to_file("res://scenes/game_lobby.tscn")
 #endregion
 
 

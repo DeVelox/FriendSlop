@@ -9,6 +9,9 @@ FriendSlop/
 ├── scripts/         # .gd scripts, one per major system
 ├── shaders/         # .gdshader files
 ├── assets/          # Art, models, sounds
+├── data/            # Game data (JSON files for topics, lists, packs)
+│   ├── lists/       # Guessing lists (valid answers per topic)
+│   └── packs/       # Guessing packs (curated word lists for performers)
 ├── addons/          # Third-party addons (fennara, godotsteam, godotsteamkit)
 ├── export/          # Build output (gitignored)
 ```
@@ -21,6 +24,7 @@ FriendSlop/
 | `scripts/` | GDScript `.gd` files | One major system per script. Scripts are kept flat (no subfolders) since the project is still small. |
 | `shaders/` | Godot `.gdshader` files | Each shader is a standalone spatial/visual effect. Named descriptively for what it renders. |
 | `assets/` | Art, 3D models, audio | Raw source assets. Imported assets live under `.godot/imported/`. |
+| `data/` | Game data (JSON) | Topics, guessing lists, and packs stored as JSON. Default data ships with game in `res://data/`. User-created data lives in `user://guessing/`. |
 | `addons/` | Third-party GDExtensions and addons | Do not modify addon source directly. See `addons/AGENTS.md` for what each addon provides. |
 | `export/` | Build output | Gitignored. Contains exported builds per platform. |
 
@@ -38,6 +42,10 @@ The main game scene is `scenes/main_stage.tscn` — the theater environment. It 
 `scenes/game_hud.tscn` is a standalone HUD overlay (CanvasLayer) instanced by the game manager.
 
 `scenes/round_manager.tscn` is a standalone manager scene that shares its script with the node inside `main_stage.tscn`.
+
+`scenes/game_lobby.tscn` is the pre-game lobby scene. Shows current game settings (topics, lists, packs) and allows host to configure them before starting. For local play, this scene is shown after the lobby_manager creates the server.
+
+`scenes/lobby_settings.tscn` is a popup settings panel that can be instanced into the game_lobby or other scenes. Provides UI for enabling/disabling topics, lists, and packs.
 
 `scenes/player/proto_controller.tscn` is the player character — a `CharacterBody3D` with collision, a 3D model, and a `MultiplayerSynchronizer`.
 
@@ -70,6 +78,7 @@ New folders should be created when:
 
 - A new **feature area** emerges that has its own scenes AND scripts (e.g. `scenes/player/` was created when player logic grew beyond a single scene)
 - A new **asset category** is needed that doesn't fit `assets/` (e.g. `assets/audio/` if audio grows large)
+- A new **data category** is needed (e.g. `data/` was created for game data like topics, lists, and packs)
 - A new **addon or third-party dependency** is added (goes in `addons/`)
 
 New folders must:

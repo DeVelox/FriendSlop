@@ -34,6 +34,9 @@ var _freeze_btn: Button = null
 var _lock_btn: Button = null
 var _speed_label: Label = null
 var _speed_slider: HSlider = null
+var _actor_options_panel: VBoxContainer = null
+var _actor_options_buttons: Array[Button] = []
+var _topic_label: Label = null
 
 const EMOTE_KEYS: Dictionary = {
 	KEY_1: "Human Armature|Punch",
@@ -61,6 +64,7 @@ func _ready() -> void:
 	_round_manager.state_changed.connect(_on_state_changed)
 	_round_manager.actor_changed.connect(_on_actor_changed)
 	_round_manager.correct_answer.connect(_on_correct_answer)
+	_round_manager.actor_options_received.connect(_on_actor_options_received)
 
 	_setup_timer_label()
 	_setup_prompt_label()
@@ -68,6 +72,8 @@ func _ready() -> void:
 	_build_start_button()
 	_build_guess_ui()
 	_build_winner_label()
+	_build_actor_options_panel()
+	_build_topic_label()
 
 	_current_state = _round_manager.current_state
 	_current_actor_peer_id = _round_manager.current_actor_peer_id
@@ -241,6 +247,9 @@ func _refresh_display() -> void:
 		prompt_label.text = _round_manager.current_prompt
 	_start_button.visible = _current_state == 0 and multiplayer.is_server()
 
+	if _actor_options_panel != null and _current_state != 2:
+		_actor_options_panel.visible = false
+
 	var show_guess: bool = in_round and not _is_local_actor()
 	_guess_panel.visible = show_guess
 	if not show_guess:
@@ -255,6 +264,8 @@ func _refresh_display() -> void:
 
 	if _current_state in [0, 4]:
 		_reset_controls()
+
+	_update_topic_label()
 
 
 func _reset_controls() -> void:
@@ -388,10 +399,23 @@ func _fuzzy_search(query: String) -> Array[String]:
 		return []
 	var lower_query: String = query.to_lower()
 	var results: Array[String] = []
-	for word: String in _round_manager.WORD_BANK:
+	var search_list: Array[String] = _get_search_list()
+	for word: String in search_list:
 		if _fuzzy_match(lower_query, word.to_lower()):
 			results.append(word)
+			if results.size() >= 5:
+				break
 	return results
+
+
+func _get_search_list() -> Array[String]:
+	var data_manager: Node = get_tree().get_first_node_in_group("guessing_data_manager")
+	if data_manager == null:
+		return []
+	var topic_id: String = _round_manager.current_topic_id
+	if topic_id.is_empty():
+		return data_manager.get_word_bank()
+	return data_manager.get_guessing_list_for_topic(topic_id)
 
 
 func _fuzzy_match(query: String, target: String) -> bool:
@@ -411,7 +435,7 @@ func _refresh_results(query: String) -> void:
 		child.queue_free()
 
 	var matches: Array[String] = _fuzzy_search(query)
-	var count: int = mini(matches.size(), 3)
+	var count: int = mini(matches.size(), 5)
 	for i in count:
 		var btn: Button = Button.new()
 		btn.text = matches[i]
@@ -429,7 +453,6 @@ func _refresh_results(query: String) -> void:
 func _on_result_pressed(prompt: String) -> void:
 	if _round_manager == null:
 		return
-	print("hello")
 	_round_manager.submit_guess.rpc(prompt)
 	_search_box.text = ""
 	_refresh_results("")
@@ -453,3 +476,96 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_correct_answer(_peer_id: int, display_name: String) -> void:
 	_winner_label.text = "%s guessed it!" % display_name
 	_winner_label.visible = true
+
+
+func _build_actor_options_panel() -> void:
+	_actor_options_panel = VBoxContainer.new()
+	_actor_options_panel.name = "ActorOptionsPanel"
+	_actor_options_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_actor_options_panel.offset_top = 80.0
+	_actor_options_panel.offset_left = -200.0
+	_actor_options_panel.offset_right = 200.0
+	_actor_options_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_actor_options_panel.add_theme_constant_override("separation", 8)
+	_actor_options_panel.visible = false
+	add_child(_actor_options_panel)
+
+	var options_title_label: Label = Label.new()
+	options_title_label.name = "OptionsTitleLabel"
+	options_title_label.text = "Choose your word:"
+	options_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	options_title_label.add_theme_font_size_override("font_size", 18)
+	options_title_label.add_theme_color_override("font_color", Color(0.8, 0.8, 1.0))
+	_actor_options_panel.add_child(options_title_label)
+
+	for i in 3:
+		var btn: Button = Button.new()
+		btn.name = "Option%d" % i
+		btn.text = ""
+		btn.custom_minimum_size = Vector2(300, 50)
+		btn.add_theme_font_size_override("font_size", 18)
+		btn.add_theme_color_override("font_color", Color.WHITE)
+		btn.add_theme_stylebox_override("normal", _make_stylebox(button_bg_color))
+		btn.add_theme_stylebox_override("hover", _make_stylebox(button_hover_color))
+		btn.pressed.connect(_on_actor_option_pressed.bind(i))
+		_actor_options_panel.add_child(btn)
+		_actor_options_buttons.append(btn)
+
+
+func _build_topic_label() -> void:
+	_topic_label = Label.new()
+	_topic_label.name = "TopicLabel"
+	_topic_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_topic_label.offset_top = 50.0
+	_topic_label.offset_left = -150.0
+	_topic_label.offset_right = 150.0
+	_topic_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_topic_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_topic_label.add_theme_font_size_override("font_size", 20)
+	_topic_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	_topic_label.visible = false
+	add_child(_topic_label)
+
+
+func _on_actor_options_received(options: Array[String]) -> void:
+	if not _is_local_actor():
+		_actor_options_panel.visible = false
+		return
+
+	_actor_options_panel.visible = true
+	prompt_label.visible = false
+
+	for i in mini(options.size(), _actor_options_buttons.size()):
+		_actor_options_buttons[i].text = options[i]
+		_actor_options_buttons[i].visible = true
+
+	for i in range(options.size(), _actor_options_buttons.size()):
+		_actor_options_buttons[i].visible = false
+
+
+func _on_actor_option_pressed(index: int) -> void:
+	if _round_manager == null or index >= _actor_options_buttons.size():
+		return
+	var selected: String = _actor_options_buttons[index].text
+	_actor_options_panel.visible = false
+	_round_manager.actor_selected_prompt.rpc(selected)
+
+
+func _update_topic_label() -> void:
+	if _topic_label == null or _round_manager == null:
+		return
+	var topic_id: String = _round_manager.current_topic_id
+	if topic_id.is_empty():
+		_topic_label.visible = false
+		return
+	var data_manager: Node = get_tree().get_first_node_in_group("guessing_data_manager")
+	if data_manager == null:
+		_topic_label.visible = false
+		return
+	var topics: Array[Dictionary] = data_manager._all_topics
+	for topic: Dictionary in topics:
+		if topic.id == topic_id:
+			_topic_label.text = "Topic: %s" % topic.name
+			_topic_label.visible = true
+			return
+	_topic_label.visible = false

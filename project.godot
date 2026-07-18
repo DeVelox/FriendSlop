@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 Steamworks="*uid://busud5tei3nht"
 _fennara_game_capture="*res://addons/fennara/runtime/game_capture_helper.gd"
+GuessingDataManager="*res://scripts/guessing_data_manager.gd"
 
 [debug]
 

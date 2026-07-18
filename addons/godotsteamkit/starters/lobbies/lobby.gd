@@ -85,7 +85,7 @@ func _on_start_pressed() -> void:
 		multiplayer.multiplayer_peer = peer
 		multiplayer.peer_connected.connect(_on_peer_connected)
 		multiplayer.peer_disconnected.connect(_on_peer_disconnected)
-		get_tree().change_scene_to_file("res://scenes/main_stage.tscn")
+		get_tree().change_scene_to_file("res://scenes/game_lobby.tscn")
 	else:
 		printerr("Failed to host multiplayer: %s" % err)
 
@@ -117,7 +117,7 @@ func _on_peer_disconnected(id: int) -> void:
 
 
 func _on_connected_to_server() -> void:
-	get_tree().change_scene_to_file("res://scenes/main_stage.tscn")
+	get_tree().change_scene_to_file("res://scenes/game_lobby.tscn")
 #endregion
 
 

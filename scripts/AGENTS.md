@@ -10,6 +10,9 @@ This folder contains all GDScript files. Each script handles one major system. S
 | `game_hud.gd` | In-game UI | CanvasLayer overlay. Synced round timer, emote buttons for audience. All gated by round state. |
 | `proto_controller.gd` | Player controller | Per-player CharacterBody3D. Role-based movement (actor only), emote input, animation playback and sync, stage boundary clamping, multiplayer authority setup. |
 | `round_manager.gd` | Round state machine | Server-authoritative. State flow: WAITING -> CHOOSING_ACTOR -> ACTOR_READY -> IN_ROUND -> ROUND_END. Handles actor selection from exhaustive pool, timer countdowns, prompt picking from word bank, RPC sync to clients. |
+| `guessing_data_manager.gd` | Guessing system data | Loads/saves topics, guessing lists, and packs from res://data/ and user://guessing/. Combines lists with packs, deduplicates entries, manages custom content creation. Autoloaded singleton. |
+| `game_lobby.gd` | Pre-game lobby | Shows current game settings, allows host to configure topics, lists, packs. Player list display. Start game button initializes data and transitions to main_stage. |
+| `lobby_settings.gd` | Settings UI | Popup panel for host to configure topics, guessing lists, and guessing packs. Shows toggles for enabling/disabling items, create/edit options. |
 
 ## Conventions
 

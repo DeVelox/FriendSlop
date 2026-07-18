@@ -12,6 +12,7 @@ signal state_changed(new_state: State)
 signal timer_updated(time_remaining: float)
 signal reset_all_animations
 signal correct_answer(peer_id: int, display_name: String)
+signal actor_options_received(options: Array[String])
 
 
 @export var round_time: float = 30.0
@@ -21,46 +22,40 @@ signal correct_answer(peer_id: int, display_name: String)
 var current_state: State = State.WAITING
 var current_actor_peer_id: int = 0
 var current_prompt: String = ""
+var current_topic_id: String = ""
 var time_remaining: float = 0.0
 var winner_peer_id: int = 0
 var winner_name: String = ""
 
-
 var _actor_pool: Array[int] = []
 var _used_prompts: Array[int] = []
 var _all_peers: Array[int] = []
-
-const WORD_BANK: Array[String] = [
-	"Mario jumping on a Goomba",
-	"Link opening a treasure chest",
-	"Pac-Man eating pellets",
-	"Angry Birds launching from a slingshot",
-	"Minecraft mining a diamond ore",
-	"Tetris clearing four lines at once",
-	"Sonic collecting gold rings",
-	"Street Fighter performing a Hadouken",
-	"Portal placing a blue and orange portal",
-	"Guitar Hero shredding a guitar solo",
-	"The Matrix - dodging bullets in slow motion",
-	"Jurassic Park - T-Rex breaking through the fence",
-	"Titanic - \"I'm the king of the world\" pose on a ship",
-	"The Lord of the Rings - throwing a ring into a volcano",
-	"Star Wars - lightsaber duel",
-	"Friends - the \"We were on a break!\" argument",
-	"The Office - Dwight's martial arts moves",
-	"Breaking Bad - putting on a hazmat suit",
-	"The Lion King - Rafiki holding up Simba on Pride Rock",
-	"Harry Potter - casting a spell with a wand",
-]
+var _word_bank: Array[String] = []
+var _data_manager: Node = null
 
 
 func _ready() -> void:
+	add_to_group("round_manager")
+	_data_manager = _find_data_manager()
 	if not multiplayer.is_server():
 		set_process(false)
 		set_physics_process(false)
 		return
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	if _data_manager != null:
+		_data_manager.data_initialized.connect(_on_data_initialized)
+
+
+func _find_data_manager() -> Node:
+	return get_tree().get_first_node_in_group("guessing_data_manager")
+
+
+func _on_data_initialized() -> void:
+	if _data_manager != null:
+		_word_bank = _data_manager.get_word_bank()
+		if _word_bank.is_empty():
+			push_warning("RoundManager: Word bank is empty!")
 
 
 func _process(delta: float) -> void:
@@ -93,6 +88,8 @@ func begin_game() -> void:
 	if current_state != State.WAITING:
 		return
 	_refresh_peer_list()
+	if _word_bank.is_empty() and _data_manager != null:
+		_word_bank = _data_manager.get_word_bank()
 	_choose_next_actor()
 
 
@@ -126,29 +123,42 @@ func _choose_next_actor() -> void:
 	_actor_pool.shuffle()
 	current_actor_peer_id = _actor_pool.pop_back()
 
-	current_prompt = _pick_prompt()
+	var options: Array[String] = _pick_three_prompts()
 	time_remaining = prep_time
 
-	_sync_actor_info.rpc(current_actor_peer_id, current_prompt)
+	_sync_actor_options.rpc(current_actor_peer_id, options)
 
 	current_state = State.ACTOR_READY
 	state_changed.emit(current_state)
 	_sync_state.rpc(State.ACTOR_READY)
 
 
+func _pick_three_prompts() -> Array[String]:
+	var options: Array[String] = []
+	var attempts: int = 0
+	while options.size() < 3 and attempts < 10:
+		var prompt: String = _pick_prompt()
+		if prompt not in options:
+			options.append(prompt)
+		attempts += 1
+	return options
+
+
 func _pick_prompt() -> String:
-	if _used_prompts.size() >= WORD_BANK.size():
+	if _word_bank.is_empty():
+		return ""
+	if _used_prompts.size() >= _word_bank.size():
 		_used_prompts.clear()
 
 	var available: Array[int] = []
-	for i in WORD_BANK.size():
+	for i: int in _word_bank.size():
 		if i not in _used_prompts:
 			available.append(i)
 
 	available.shuffle()
 	var idx: int = available[0]
 	_used_prompts.append(idx)
-	return WORD_BANK[idx]
+	return _word_bank[idx]
 
 
 func _begin_round() -> void:
@@ -204,6 +214,24 @@ func _sync_actor_info(peer_id: int, prompt: String) -> void:
 	current_actor_peer_id = peer_id
 	current_prompt = prompt
 	actor_changed.emit(peer_id)
+
+
+@rpc("authority", "call_local", "reliable")
+func _sync_actor_options(peer_id: int, options: Array[String]) -> void:
+	current_actor_peer_id = peer_id
+	actor_changed.emit(peer_id)
+	actor_options_received.emit(options)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func actor_selected_prompt(prompt: String) -> void:
+	if not multiplayer.is_server():
+		return
+	if multiplayer.get_remote_sender_id() != current_actor_peer_id:
+		return
+	current_prompt = prompt
+	_sync_actor_info.rpc(current_actor_peer_id, current_prompt)
+	time_remaining = prep_time
 
 
 @rpc("any_peer", "call_local", "reliable")
