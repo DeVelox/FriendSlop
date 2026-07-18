@@ -61,6 +61,8 @@ func _player_is_ready(username: String = "") -> void:
 	if sender_id == 0:
 		return
 	if multiplayer.is_server():
+		if not _peer_list.has(sender_id):
+			_peer_list[sender_id] = {"name": "Player %d" % sender_id}
 		_peer_list[sender_id]["name"] = username if username != "" else "Player %d" % sender_id
 	if not players.has_node(str(sender_id)):
 		_spawn_player(sender_id)

@@ -36,8 +36,10 @@ func _ready() -> void:
 	if _is_host:
 		_enable_defaults()
 		_refresh_summary()
+		_refresh_player_list_for_host()
 	else:
 		_request_settings_from_host()
+		_request_player_list_from_host()
 
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
@@ -167,7 +169,6 @@ func _build_ui() -> void:
 	player_scroll.add_child(player_list)
 
 	_player_list_container = player_list
-	_populate_player_list(player_list)
 
 	var btn_row: HBoxContainer = HBoxContainer.new()
 	btn_row.name = "ButtonRow"
@@ -265,23 +266,6 @@ func _refresh_summary() -> void:
 	_summary_label.text = text
 
 
-func _populate_player_list(container: VBoxContainer) -> void:
-	var peers: Array[int] = []
-	for peer_id: int in multiplayer.get_peers():
-		peers.append(peer_id)
-	peers.append(1)
-
-	for peer_id: int in peers:
-		var label: Label = Label.new()
-		var peer_name: String = "Player %d" % peer_id
-		if peer_id == 1:
-			peer_name += " (Host)"
-		label.text = peer_name
-		label.add_theme_font_size_override("font_size", 14)
-		label.add_theme_color_override("font_color", Color.WHITE)
-		container.add_child(label)
-
-
 func _on_settings_pressed() -> void:
 	if LOBBY_SETTINGS_SCENE == null:
 		return
@@ -340,19 +324,60 @@ func _on_leave_pressed() -> void:
 func _on_peer_connected(_id: int) -> void:
 	if _is_host:
 		_sync_settings_to_clients()
-	_refresh_player_list()
+		_refresh_player_list_for_host()
 
 
 func _on_peer_disconnected(_id: int) -> void:
-	_refresh_player_list()
+	if _is_host:
+		_refresh_player_list_for_host()
 
 
-func _refresh_player_list() -> void:
+func _refresh_player_list_for_host() -> void:
+	var peers: Array[int] = []
+	for peer_id: int in multiplayer.get_peers():
+		peers.append(peer_id)
+	peers.append(1)
+	_sync_player_list_rpc.rpc(peers)
+	_refresh_player_list_from_ids(peers)
+
+
+func _refresh_player_list_from_ids(peer_ids: Array) -> void:
 	if _player_list_container == null:
 		return
 	for child in _player_list_container.get_children():
 		child.queue_free()
-	_populate_player_list(_player_list_container)
+	for peer_id: int in peer_ids:
+		var label: Label = Label.new()
+		var peer_name: String = "Player %d" % peer_id
+		if peer_id == 1:
+			peer_name += " (Host)"
+		label.text = peer_name
+		label.add_theme_font_size_override("font_size", 14)
+		label.add_theme_color_override("font_color", Color.WHITE)
+		_player_list_container.add_child(label)
+
+
+func _request_player_list_from_host() -> void:
+	_request_player_list_rpc.rpc_id(1)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_player_list_rpc() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if sender_id == 0:
+		return
+	var peers: Array[int] = []
+	for peer_id: int in multiplayer.get_peers():
+		peers.append(peer_id)
+	peers.append(1)
+	_sync_player_list_rpc.rpc_id(sender_id, peers)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _sync_player_list_rpc(peer_ids: Array) -> void:
+	_refresh_player_list_from_ids(peer_ids)
 
 
 func _request_settings_from_host() -> void:

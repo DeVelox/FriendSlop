@@ -31,6 +31,7 @@ var _actor_pool: Array[int] = []
 var _used_prompts: Array[int] = []
 var _all_peers: Array[int] = []
 var _word_bank: Array[String] = []
+var _last_offered_options: Array[String] = []
 var _data_manager: Node = null
 
 
@@ -124,6 +125,7 @@ func _choose_next_actor() -> void:
 	current_actor_peer_id = _actor_pool.pop_back()
 
 	var options: Array[String] = _pick_three_prompts()
+	_last_offered_options = options
 	time_remaining = prep_time
 
 	_sync_actor_options.rpc(current_actor_peer_id, options)
@@ -162,6 +164,9 @@ func _pick_prompt() -> String:
 
 
 func _begin_round() -> void:
+	if current_prompt.is_empty() and not _last_offered_options.is_empty():
+		current_prompt = _last_offered_options.pick_random()
+		_sync_actor_info.rpc(current_actor_peer_id, current_prompt)
 	current_state = State.IN_ROUND
 	time_remaining = round_time
 	state_changed.emit(current_state)
@@ -230,6 +235,7 @@ func actor_selected_prompt(prompt: String) -> void:
 	if multiplayer.get_remote_sender_id() != current_actor_peer_id:
 		return
 	current_prompt = prompt
+	_last_offered_options.clear()
 	_sync_actor_info.rpc(current_actor_peer_id, current_prompt)
 	time_remaining = prep_time
 
