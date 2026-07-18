@@ -20,6 +20,8 @@ const LOBBY_JOIN = preload("uid://dvg3786kfbaty")
 
 const LOCAL_PORT: int = 7000
 
+var _pending_steam_lobby: int = 0
+
 @onready var _exit: Button = %Exit
 @onready var _host: Button = %Host
 @onready var _join: Button = %Join
@@ -33,6 +35,10 @@ func _ready() -> void:
 	if Engine.has_singleton("Steam"):
 		_connect_steam_signals()
 		_get_command_line_invite()
+		if _pending_steam_lobby > 0:
+			var pending := _pending_steam_lobby
+			_pending_steam_lobby = 0
+			Steam.joinLobby(pending)
 	else:
 		print("Steam not available, Steam features will be unavailable")
 
@@ -108,6 +114,7 @@ func _on_connected_to_local() -> void:
 #region Steam signals
 func _connect_steam_signals() -> void:
 	_steam_callback_wrapper("lobby_joined", "_on_lobby_joined")
+	_steam_callback_wrapper("join_requested", "_on_steam_join_requested")
 
 
 func _on_lobby_joined(lobby_id: int, _permissions: int, _locked: int, response: Steam.ChatRoomEnterResponse) -> void:
@@ -143,6 +150,19 @@ func _on_lobby_joined(lobby_id: int, _permissions: int, _locked: int, response: 
 				printerr("Failed joining lobby %s, a user you have blocked is in the lobby.")
 			Steam.ChatRoomEnterResponse.CHAT_ROOM_ENTER_RESPONSE_RATE_LIMIT_EXCEEDED:
 				printerr("Failed joining lobby %s, you have exceeded the rate limit.")
+
+
+func _on_steam_join_requested(lobby_id: int, _steam_id: int) -> void:
+	if Engine.has_singleton("Steam") and Steamworks.lobby_id > 0:
+		Steam.leaveLobby(Steamworks.lobby_id)
+		Steamworks.lobby_id = 0
+	multiplayer.multiplayer_peer = null
+	_clear_scene()
+	if get_tree().current_scene == self:
+		Steam.joinLobby(lobby_id)
+	else:
+		_pending_steam_lobby = lobby_id
+		get_tree().change_scene_to_file.call_deferred("res://addons/godotsteamkit/starters/lobbies/lobby_manager.tscn")
 
 
 func _steam_callback_wrapper(this_signal: String, this_function: String) -> void:
