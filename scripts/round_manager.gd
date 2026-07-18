@@ -17,7 +17,7 @@ signal reset_all_animations
 func _rpc_reset_all_animations() -> void:
 	reset_all_animations.emit()
 
-@export var round_time: float = 30.0
+@export var round_time: float = 5.0
 @export var prep_time: float = 5.0
 @export var end_pause: float = 5.0
 

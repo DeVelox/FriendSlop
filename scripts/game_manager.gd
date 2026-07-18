@@ -5,12 +5,12 @@ const PLAYER_SCENE: PackedScene = preload("res://scenes/player/proto_controller.
 const ACTOR_POSITION: Vector3 = Vector3(0.0, 1.0, 23.0)
 const STAGE_FORWARD: Vector3 = Vector3(0.0, 0.0, -1.0)
 
+@onready var spawner: MultiplayerSpawner = $Multiplayer/MultiplayerSpawner
 @onready var players: Node3D = $Multiplayer/Players
 @onready var round_manager: Node = $RoundManager
 @onready var spotlight: SpotLight3D = $CenterSpotlight
 @onready var camera: Camera3D = $StageCamera
 
-var _audience_slots: Array[Vector3] = []
 var _peer_list: Dictionary = {}
 var _peer_info: Dictionary = {"name": "Host"}
 
@@ -23,43 +23,13 @@ func _ready() -> void:
 	round_manager.round_started.connect(_on_round_started)
 	round_manager.round_ended.connect(_on_round_ended)
 
-	_build_audience_slots()
-
+	spawner.set_spawn_function(_spawn_function)
 	if multiplayer.is_server():
 		_peer_list[1] = _peer_info
 		_spawn_player(1)
 	else:
 		_player_is_ready.rpc_id(1)
 
-
-func _build_audience_slots() -> void:
-	_audience_slots.clear()
-	var max_players: int = 6
-	if Steamworks.lobby_id > 0:
-		var lobby_limit: int = Steam.getLobbyMemberLimit(Steamworks.lobby_id)
-		if lobby_limit > 0:
-			max_players = lobby_limit
-	var slot_count: int = maxi(max_players - 1, 1)
-	var spread_dir: Vector3 = STAGE_FORWARD.cross(Vector3.UP).normalized()
-	var center: Vector3 = ACTOR_POSITION + STAGE_FORWARD * 10.0
-	center.y = 0.5
-
-	var front_row_count: int = mini(slot_count, 5)
-	var back_row_count: int = slot_count - front_row_count
-
-	var front_spread: float = float(front_row_count) * 2.5
-	for i in front_row_count:
-		var t: float = float(i) / maxf(front_row_count - 1, 1) - 0.5
-		var pos: Vector3 = center + spread_dir * t * front_spread
-		_audience_slots.append(pos)
-
-	if back_row_count > 0:
-		var back_spread: float = float(back_row_count) * 2.5
-		var back_center: Vector3 = center + STAGE_FORWARD * 3.0
-		for i in back_row_count:
-			var t: float = float(i) / maxf(back_row_count - 1, 1) - 0.5
-			var pos: Vector3 = back_center + spread_dir * t * back_spread
-			_audience_slots.append(pos)
 
 func _get_actor_position() -> Vector3:
 	return ACTOR_POSITION
@@ -68,9 +38,12 @@ func _get_actor_rotation() -> float:
 	return STAGE_FORWARD.angle_to(Vector3.FORWARD)
 	
 func _get_audience_position(index: int) -> Vector3:
-	if index < _audience_slots.size():
-		return _audience_slots[index]
-	return Vector3(0.0, 0.5, 20.0)
+	var shifted_position = Vector3(-6.25, 0.0, 13.0)
+	var row = index / 5
+	var col = index % 5
+	shifted_position.x += col * 3
+	shifted_position.z -= row
+	return shifted_position
 	
 func _get_audience_rotation() -> float:
 	return STAGE_FORWARD.angle_to(Vector3.BACK)
@@ -101,26 +74,30 @@ func _on_server_disconnected() -> void:
 	multiplayer.multiplayer_peer = null
 	get_tree().change_scene_to_file.call_deferred("res://addons/godotsteamkit/starters/lobbies/lobby_manager.tscn")
 
-
+	
 func _spawn_player(id: int) -> void:
+	var data: Dictionary = {}
+	var audience_index: int = players.get_child_count()
+	
+	data.position = _get_audience_position(audience_index)
+	data.rotation = _get_audience_rotation()
+	data.index = audience_index
+	data.peer_id = id
+	
+	spawner.spawn(data)
+	
+func _spawn_function(data: Dictionary) -> CharacterBody3D:
 	var player: CharacterBody3D = PLAYER_SCENE.instantiate()
-	player.name = str(id)
-
-	var audience_index: int = _peer_list.keys().find(id)
-	if audience_index == -1:
-		audience_index = 0
-	player.position = _get_audience_position(audience_index)
-	player.rotation.y = _get_audience_rotation()
-
-	player.set_meta("peer_id", id)
-	players.add_child(player, true)
+	player.position = data.position
+	player.rotation.y = data.rotation
+	player.name = str(data.peer_id)
+	player.set_meta("peer_id", data.peer_id)
+	player.set_meta("index", data.index)
+	return player
 
 func _reset_all_to_audience() -> void:
 	for child in players.get_children():
-		var pid: int = child.get_meta("peer_id", int(child.name))
-		var idx: int = _peer_list.keys().find(pid)
-		if idx == -1:
-			idx = 0
+		var idx: int = child.get_meta("index")
 		child.position = _get_audience_position(idx)
 		child.rotation.y = _get_audience_rotation()
 		if child.has_method("set_role"):
@@ -129,14 +106,12 @@ func _reset_all_to_audience() -> void:
 
 func _on_actor_changed(peer_id: int) -> void:
 	for child in players.get_children():
-		var pid: int = child.get_meta("peer_id", int(child.name))
+		var pid: int = child.get_meta("peer_id")
 		var is_child_actor: bool = (pid == peer_id)
 		if child.has_method("set_role"):
 			child.set_role(is_child_actor)
 		if pid != peer_id:
-			var idx: int = _peer_list.keys().find(pid)
-			if idx == -1:
-				idx = 0
+			var idx: int = child.get_meta("index")
 			child.position = _get_audience_position(idx)
 			child.rotation.y = _get_audience_rotation()
 		else:

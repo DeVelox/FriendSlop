@@ -101,9 +101,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 62.107746)
 operation = 2
 size = Vector3(40, 4, 64)
 
-[node name="CameraMount" type="Node3D" parent="." unique_id=872068861]
-transform = Transform3D(0.70710677, 0.3642671, 0.6060606, 0, 0.8570991, -0.5151515, -0.70710677, 0.3642671, 0.6060606, -20, 18, 10)
-
 [node name="StageCamera" type="Camera3D" parent="." unique_id=1551530037]
 transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 3.6870942, 0.1814537)
 fov = 35.026844
@@ -111,7 +108,6 @@ fov = 35.026844
 [node name="Multiplayer" type="Node" parent="." unique_id=953437698]
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="Multiplayer" unique_id=1207860551]
-_spawnable_scenes = PackedStringArray("uid://dejc3kvsj5lmt")
 spawn_path = NodePath("../Players")
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="Multiplayer" unique_id=776746105]
