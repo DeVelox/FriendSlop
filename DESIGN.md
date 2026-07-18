@@ -115,8 +115,8 @@ After choosing a word, the acting team gets a short preparation phase before the
 
 The game focuses on three topic categories:
 
-- **TV** — sitcoms, dramas, reality shows, iconic scenes
-- **Movies** — blockbuster moments, famous scenes, character impressions
-- **Anime** — popular series, memorable moments, character poses
+- **TV** — TV Show Titles
+- **Movies** — Movie Titles
+- **Anime** — Anime Show/Movie Titles
 
 These topics are not final. The pack system is designed to be easily expandable — new topics, niche categories, and seasonal content can all be added as new packs without changing the core game.
