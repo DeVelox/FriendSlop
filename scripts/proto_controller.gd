@@ -15,6 +15,7 @@ extends CharacterBody3D
 var is_actor: bool = false
 var _playing_emote: bool = false
 var _in_round: bool = false
+var _can_emote: bool = false
 @onready var _round_manager: Node = get_node_or_null("../../../RoundManager")
 
 var synced_anim: String = "":
@@ -44,7 +45,7 @@ const STAGE_BOUNDS_MIN: Vector3 = Vector3(-10.0, 0.0, 18.0)
 const STAGE_BOUNDS_MAX: Vector3 = Vector3(10.0, 2.0, 28.0)
 
 const AUDIENCE_BOUNDS_MIN: Vector3 = Vector3(-7.0, 0.0, 8.0)
-const AUDIENCE_BOUNDS_MAX: Vector3 = Vector3(7.0, 2.0, 18.0)
+const AUDIENCE_BOUNDS_MAX: Vector3 = Vector3(7.0, 2.0, 13.0)
 
 const EMOTE_KEYS: Dictionary = {
 	KEY_1: "Human Armature|Punch",
@@ -75,6 +76,7 @@ func _ready() -> void:
 			rm.round_started.connect(_on_round_started)
 			rm.round_ended.connect(_on_round_ended)
 			_in_round = (rm.current_state == 3)
+			_can_emote = (rm.current_state == 3)
 	else:
 		set_process(false)
 		set_physics_process(false)
@@ -84,7 +86,7 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
 		return
-	if not _in_round:
+	if not _can_emote:
 		return
 	if not event is InputEventKey:
 		return
@@ -128,29 +130,32 @@ func _physics_process(_delta: float) -> void:
 				_play_movement("Human Armature|Idle")
 
 
-func set_role(actor: bool) -> void:
-	if not is_multiplayer_authority():
-		return
-	is_actor = actor
+func set_role(peer_id: int) -> void:
+	is_actor = (peer_id == int(name))
 	model.visible = true
 
 
 func _on_round_state_changed(new_state: int) -> void:
-	_in_round = (new_state == 3)
+	_in_round = new_state in [2, 3]
+	_can_emote = new_state == 3
 
 
 func _on_round_started(_actor_peer_id: int, _prompt: String) -> void:
 	_in_round = true
+	_can_emote = true
 
 
 func _on_round_ended() -> void:
 	_in_round = false
+	_can_emote = false
 
 
 func _on_reset_all_animations() -> void:
 	if anim_player != null and anim_player.has_animation("Human Armature|Idle"):
 		anim_player.play("Human Armature|Idle")
 	_playing_emote = false
+	synced_anim = "Human Armature|Idle"
+
 
 
 func _play_emote(anim_name: String) -> void:

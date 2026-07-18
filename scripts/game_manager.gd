@@ -12,16 +12,14 @@ const STAGE_FORWARD: Vector3 = Vector3(0.0, 0.0, -1.0)
 @onready var camera: Camera3D = $StageCamera
 
 var _peer_list: Dictionary = {}
-var _peer_info: Dictionary = {"name": "Host"}
+var _peer_info: Dictionary = {"name": str(1)}
 
 
 func _ready() -> void:
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
-	round_manager.actor_changed.connect(_on_actor_changed)
-	round_manager.round_started.connect(_on_round_started)
-	round_manager.round_ended.connect(_on_round_ended)
+	round_manager.actor_changed.connect(_on_synced_actor_changed)
 
 	spawner.set_spawn_function(_spawn_function)
 	if multiplayer.is_server():
@@ -39,6 +37,7 @@ func _get_actor_rotation() -> float:
 	
 func _get_audience_position(index: int) -> Vector3:
 	var shifted_position = Vector3(-6.25, 0.0, 13.0)
+	@warning_ignore("integer_division")
 	var row = index / 5
 	var col = index % 5
 	shifted_position.x += col * 3
@@ -81,47 +80,29 @@ func _spawn_player(id: int) -> void:
 	
 	data.position = _get_audience_position(audience_index)
 	data.rotation = _get_audience_rotation()
-	data.index = audience_index
 	data.peer_id = id
 	
 	spawner.spawn(data)
-	
+
+# TODO: update positions when somebody disconnects as well
 func _spawn_function(data: Dictionary) -> CharacterBody3D:
 	var player: CharacterBody3D = PLAYER_SCENE.instantiate()
 	player.position = data.position
 	player.rotation.y = data.rotation
 	player.name = str(data.peer_id)
+	player.set_meta("position", data.position)
+	player.set_meta("rotation", data.rotation)
 	player.set_meta("peer_id", data.peer_id)
-	player.set_meta("index", data.index)
 	return player
 
-func _reset_all_to_audience() -> void:
-	for child in players.get_children():
-		var idx: int = child.get_meta("index")
-		child.position = _get_audience_position(idx)
-		child.rotation.y = _get_audience_rotation()
-		if child.has_method("set_role"):
-			child.set_role(false)
-
-
-func _on_actor_changed(peer_id: int) -> void:
+func _on_synced_actor_changed(peer_id: int) -> void:
 	for child in players.get_children():
 		var pid: int = child.get_meta("peer_id")
-		var is_child_actor: bool = (pid == peer_id)
 		if child.has_method("set_role"):
-			child.set_role(is_child_actor)
-		if pid != peer_id:
-			var idx: int = child.get_meta("index")
-			child.position = _get_audience_position(idx)
-			child.rotation.y = _get_audience_rotation()
-		else:
+			child.set_role(peer_id)
+		if pid == peer_id:
 			child.position = _get_actor_position()
 			child.rotation.y = _get_actor_rotation()
-
-
-func _on_round_started(_actor_peer_id: int, _prompt: String) -> void:
-	spotlight.visible = true
-
-
-func _on_round_ended() -> void:
-	_reset_all_to_audience()
+		else:
+			child.position = child.get_meta("position")
+			child.rotation.y = child.get_meta("rotation")

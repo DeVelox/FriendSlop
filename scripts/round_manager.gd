@@ -13,13 +13,9 @@ signal timer_updated(time_remaining: float)
 signal reset_all_animations
 
 
-@rpc("any_peer", "call_remote", "reliable")
-func _rpc_reset_all_animations() -> void:
-	reset_all_animations.emit()
-
-@export var round_time: float = 5.0
-@export var prep_time: float = 5.0
-@export var end_pause: float = 5.0
+@export var round_time: float = 10.0
+@export var prep_time: float = 7.0
+@export var end_pause: float = 3.0
 
 var current_state: State = State.WAITING
 var current_actor_peer_id: int = 0
@@ -109,10 +105,8 @@ func _get_spotlight() -> SpotLight3D:
 
 func _refresh_peer_list() -> void:
 	_all_peers.clear()
-	_all_peers.append(1)
-	for peer_id in multiplayer.get_peers():
-		if peer_id != 1:
-			_all_peers.append(peer_id)
+	for peer: int in multiplayer.get_peers():
+		_all_peers.append(peer)
 
 
 func _choose_next_actor() -> void:
@@ -129,10 +123,10 @@ func _choose_next_actor() -> void:
 	time_remaining = prep_time
 
 	_sync_actor_info.rpc(current_actor_peer_id, current_prompt)
-	actor_changed.emit(current_actor_peer_id)
 
 	current_state = State.ACTOR_READY
 	state_changed.emit(current_state)
+	_sync_state.rpc(State.ACTOR_READY)
 
 
 func _pick_prompt() -> String:
@@ -166,8 +160,7 @@ func _end_round() -> void:
 	round_ended.emit()
 	_sync_state.rpc(State.ROUND_END)
 	_set_spotlight_enabled(false)
-	reset_all_animations.emit()
-	_rpc_reset_all_animations.rpc()
+	_sync_actor_info.rpc(0, "")
 
 
 func _set_spotlight_enabled(enabled: bool) -> void:
@@ -191,13 +184,15 @@ func _on_peer_disconnected(id: int) -> void:
 		_end_round()
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_local", "reliable")
 func _sync_state(new_state: State) -> void:
 	current_state = new_state
 	state_changed.emit(new_state)
+	if new_state == State.ROUND_END:
+		reset_all_animations.emit()
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_local", "reliable")
 func _sync_actor_info(peer_id: int, prompt: String) -> void:
 	current_actor_peer_id = peer_id
 	current_prompt = prompt
