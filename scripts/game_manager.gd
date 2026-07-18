@@ -12,7 +12,7 @@ const STAGE_FORWARD: Vector3 = Vector3(0.0, 0.0, -1.0)
 @onready var camera: Camera3D = $StageCamera
 
 var _peer_list: Dictionary = {}
-var _peer_info: Dictionary = {"name": str(1)}
+var _peer_info: Dictionary = {}
 
 
 func _ready() -> void:
@@ -21,12 +21,13 @@ func _ready() -> void:
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 	round_manager.actor_changed.connect(_on_synced_actor_changed)
 
+	_peer_info = {"name": _get_steam_username() if _get_steam_username() != "" else "Player 1"}
 	spawner.set_spawn_function(_spawn_function)
 	if multiplayer.is_server():
 		_peer_list[1] = _peer_info
 		_spawn_player(1)
 	else:
-		_player_is_ready.rpc_id(1)
+		_player_is_ready.rpc_id(1, _get_steam_username())
 
 
 func _get_actor_position() -> Vector3:
@@ -48,11 +49,19 @@ func _get_audience_rotation() -> float:
 	return STAGE_FORWARD.angle_to(Vector3.BACK)
 
 
+func _get_steam_username() -> String:
+	if Engine.has_singleton("Steam") and Steam.getPersonaName() != "":
+		return Steam.getPersonaName()
+	return ""
+
+
 @rpc("any_peer", "call_local", "reliable")
-func _player_is_ready() -> void:
+func _player_is_ready(username: String = "") -> void:
 	var sender_id: int = multiplayer.get_remote_sender_id()
 	if sender_id == 0:
 		return
+	if multiplayer.is_server():
+		_peer_list[sender_id]["name"] = username if username != "" else "Player %d" % sender_id
 	if not players.has_node(str(sender_id)):
 		_spawn_player(sender_id)
 	
