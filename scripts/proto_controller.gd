@@ -32,14 +32,48 @@ var synced_anim: String = "":
 			return
 		if is_multiplayer_authority():
 			return
-		if _anim_frozen or _anim_locked:
+		if _anim_frozen or _anim_locked or synced_anim_frozen:
 			return
-		if EMOTE_KEYS.values().has(value):
-			var anim: Animation = anim_player.get_animation(value)
-			if anim != null:
-				anim.loop_mode = Animation.LOOP_LINEAR
+		var anim: Animation = anim_player.get_animation(value)
+		if anim != null:
+			anim.loop_mode = Animation.LOOP_LINEAR
 		if anim_player.has_animation(value) and anim_player.current_animation != value:
 			anim_player.play(value)
+
+var synced_anim_frozen: bool = false:
+	set(value):
+		if synced_anim_frozen == value:
+			return
+		synced_anim_frozen = value
+		if is_multiplayer_authority():
+			return
+		if anim_player == null:
+			return
+		if value:
+			anim_player.seek(synced_anim_time, true)
+			anim_player.pause()
+		else:
+			anim_player.play()
+
+var synced_anim_time: float = 0.0:
+	set(value):
+		synced_anim_time = value
+		if is_multiplayer_authority():
+			return
+		if anim_player == null:
+			return
+		if synced_anim_frozen:
+			anim_player.seek(value, true)
+			anim_player.pause()
+
+var synced_anim_speed: float = 1.0:
+	set(value):
+		synced_anim_speed = value
+		if is_multiplayer_authority():
+			return
+		if anim_player == null:
+			return
+		anim_player.speed_scale = value
 
 @onready var head: Node3D = $Head
 @onready var collider: CollisionShape3D = $Collider
@@ -168,6 +202,8 @@ func _on_reset_all_animations() -> void:
 	_anim_frozen = false
 	_anim_locked = false
 	_emote_speed = 1.0
+	synced_anim_frozen = false
+	synced_anim_speed = 1.0
 	if anim_player != null:
 		anim_player.speed_scale = 1.0
 		if anim_player.has_animation("Human Armature|Idle"):
@@ -182,8 +218,10 @@ func toggle_freeze() -> bool:
 	_anim_frozen = not _anim_frozen
 	if _anim_frozen:
 		anim_player.pause()
+		synced_anim_time = anim_player.current_animation_position
 	else:
 		anim_player.play()
+	synced_anim_frozen = _anim_frozen
 	return _anim_frozen
 
 
@@ -198,6 +236,7 @@ func set_speed_scale(value: float) -> void:
 	_emote_speed = value
 	if anim_player != null:
 		anim_player.speed_scale = value
+	synced_anim_speed = value
 
 
 func _play_emote(anim_name: String) -> void:
@@ -220,6 +259,9 @@ func _play_movement(anim_name: String) -> void:
 	if _anim_frozen or _anim_locked:
 		return
 	if anim_player.has_animation(anim_name):
+		var anim: Animation = anim_player.get_animation(anim_name)
+		if anim != null:
+			anim.loop_mode = Animation.LOOP_LINEAR
 		if anim_player.current_animation != anim_name:
 			anim_player.play(anim_name)
 			synced_anim = anim_name
